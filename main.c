@@ -11,6 +11,7 @@
 #include <stdint.h>
 
 #include "main.h"
+#include "button.h"
 
 // GLOBAL VARIABLES------------------------------------------------------------
 volatile uint32_t _tick = 0;
@@ -65,6 +66,15 @@ void InitializePorts(void)
 	LATC	= 0b00000000;	// Clear port latch
 	ANCON1bits.PCFG11 = 1;	// Disable analog inputs AN11
 	TRISC	= 0b10000000;	// Outputs PORTC<6:0>, Input PORTC<7>
+
+	// Configure peripheral pin select
+	EECON2 = 0x55;			// PPS register unlock byte sequence
+	EECON2 = 0xAA;
+	PPSCONbits.IOLOCK = 0;	// Unlock PPS registers
+	RPINR21 = 0x06;			// Assign SPI2 Data Input (SDI2) to RP6 (PORTB<3>)
+	RPOR7	= 0x0B;			// Assign SPI2 Clock Output (SCK2) to RP7 (PORTB<4>)
+	RPOR8	= 0x0A;			// Assign SPI2 Data Output (SDO2) to RP8 (PORTB<5>)
+	PPSCONbits.IOLOCK = 1;	// Lock PPS registers
 }
 
 void InitializeTimers(void)
@@ -79,6 +89,10 @@ void InitializeTimers(void)
 
 void InitializeInterrupts(void)
 {
+	// Configure external interrupts
+	INTCON2bits.INTEDG0	= 0;	// Falling edge (button)
+	INTCONbits.INT0IE	= 1;
+
 	// Configure peripheral interrupts
 	// Timer 4 period match
 	IPR3bits.TMR4IP	= 1;	// High priority

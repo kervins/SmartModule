@@ -18,6 +18,11 @@ void __interrupt(high_priority) isrHighPriority(void)
 		++_tick;
 		TMR4IF = FALSE;
 	}
+	else if(INTCONbits.INT0IF)
+	{
+
+		INT0IF = FALSE;
+	}
 	return;
 }
 
