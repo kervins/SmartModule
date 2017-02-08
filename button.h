@@ -1,9 +1,20 @@
-#ifndef BUTTONS_H
-#define BUTTONS_H
+/* Project:	SmartModule
+ * File:	button.h
+ * Author:	Jonathan Ruisi
+ * Created:	December 20, 2016, 7:52 PM
+ */
+
+#ifndef BUTTON_H
+#define BUTTON_H
 
 #include <stdint.h>
 #include <stdbool.h>
 #include "common_types.h"
+
+// DEFINITIONS-----------------------------------------------------------------
+// Button timing (ms)
+#define DEBOUNCE_DELAY	5
+#define HOLD_DELAY		500
 
 // TYPE DEFINITIONS------------------------------------------------------------
 
@@ -26,5 +37,7 @@ typedef struct _ButtonInfo
 } ButtonInfo;
 
 // FUNCTION PROTOTYPES---------------------------------------------------------
+void UpdateButtonState(volatile ButtonInfo* buttonInfo, bool currentLogicLevel);
+void CheckButton(volatile ButtonInfo *buttonInfo);
 
 #endif

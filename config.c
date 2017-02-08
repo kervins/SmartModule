@@ -11,7 +11,7 @@
 #pragma config CP0			= OFF			// Code Protect
 
 // CONFIG2L
-#pragma config OSC			= INTOSCPLLO	// Oscillator
+#pragma config OSC			= INTOSCPLL		// Oscillator
 #pragma config SOSCSEL		= DIG			// T1OSC/SOSC Power Selection Bits
 #pragma config CLKOEC		= OFF			// EC Clock Out Enable Bit
 #pragma config FCMEN		= ON			// Fail-Safe Clock Monitor

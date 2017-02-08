@@ -1,11 +1,67 @@
-/*
- * File:   button.c
- * Author: Jonathan
- *
- * Created on December 20, 2016, 7:52 PM
+/* Project:	SmartModule
+ * File:	button.c
+ * Author:	Jonathan Ruisi
+ * Created:	December 20, 2016, 7:52 PM
  */
 
 #include <xc.h>
 #include "button.h"
+#include "main.h"
 
 // FUNCTIONS-------------------------------------------------------------------
+
+void UpdateButtonState(volatile ButtonInfo* buttonInfo, bool currentLogicLevel)
+{
+	if(!buttonInfo->isDebouncing)
+	{
+		buttonInfo->currentLogicLevel = currentLogicLevel;
+		if(buttonInfo->previousLogicLevel != buttonInfo->currentLogicLevel)
+		{
+			if(!buttonInfo->currentLogicLevel && buttonInfo->currentState != BTN_PRESS)
+			{
+				INTCON2bits.INTEDG1 = 1;	// Configure INT1 interrupt to trigger on a rising edge
+				buttonInfo->currentState = BTN_PRESS;
+			}
+			else if(buttonInfo->currentLogicLevel && buttonInfo->currentState != BTN_RELEASE)
+			{
+				INTCON2bits.INTEDG1 = 0;	// Configure INT1 interrupt to trigger on a falling edge
+				buttonInfo->currentState = BTN_RELEASE;
+			}
+			buttonInfo->isUnhandled = true;
+			buttonInfo->isDebouncing = true;
+			buttonInfo->previousLogicLevel = buttonInfo->currentLogicLevel;
+			buttonInfo->timestamp = _tick;
+		}
+	}
+}
+
+void CheckButton(volatile ButtonInfo *buttonInfo)
+{
+	if(!buttonInfo->isUnhandled && buttonInfo->currentState == BTN_PRESS
+	&& !buttonInfo->currentLogicLevel
+	&& (_tick - buttonInfo->timestamp >= HOLD_DELAY))
+	{
+		buttonInfo->currentState = BTN_HOLD;
+		buttonInfo->isUnhandled = true;
+	}
+
+	if(buttonInfo->isUnhandled)
+	{
+		switch(buttonInfo->currentState)
+		{
+			case BTN_PRESS:
+				buttonInfo->pressAction();
+				break;
+			case BTN_HOLD:
+				buttonInfo->holdAction();
+				break;
+			case BTN_RELEASE:
+				buttonInfo->releaseAction();
+				break;
+		}
+		buttonInfo->isUnhandled = false;
+	}
+
+	if(buttonInfo->isDebouncing && (_tick - buttonInfo->timestamp >= DEBOUNCE_DELAY))
+		buttonInfo->isDebouncing = false;
+}

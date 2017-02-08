@@ -1,3 +1,9 @@
+/* Project:	SmartModule
+ * File:	utility.h
+ * Author:	Jonathan Ruisi
+ * Created:	March 17, 2016, 2:35 AM
+ */
+
 #ifndef UTILITY_H
 #define UTILITY_H
 

@@ -1,5 +1,14 @@
+/* Project:	SmartModule
+ * File:	main.h
+ * Author:	Jonathan Ruisi
+ * Created:	December 16, 2016, 6:28 AM
+ */
+
 #ifndef MAIN_H
 #define MAIN_H
+
+#include "buffer.h"
+
 
 // DEFINITIONS (OSCILLATOR)----------------------------------------------------
 #define	FOSC	48000000L	// PLL generated system clock frequency	(48 MHz)
@@ -7,41 +16,53 @@
 #define TCY		1L/FCY		// Instruction period					(83.33ns)
 
 // DEFINITIONS (PERIPHERAL)----------------------------------------------------
-#define GPIO0_IN		PORTCbits.RC0
-#define GPIO1_IN		PORTCbits.RC1
-#define GPIO2_IN		PORTCbits.RC2
-#define GPIO3_IN		PORTCbits.RC3
-#define GPIO0_OUT		LATCbits.LATC0
-#define GPIO1_OUT		LATCbits.LATC1
-#define GPIO2_OUT		LATCbits.LATC2
-#define GPIO3_OUT		LATCbits.LATC3
 #define ANALOG0			PORTAbits.AN0
 #define ANALOG1			PORTAbits.AN1
 #define ANALOG2			PORTAbits.AN2
 #define ANALOG3			PORTAbits.AN3
-#define SPI_SDI			PORTBbits.RP6
-#define SPI_SCK			PORTBbits.RP7
-#define SPI_SDO			PORTBbits.RP8
-#define WIFI_EN			LATAbits.LATA5
-#define WIFI_RST		LATAbits.LATA6
+#define BUTTON			PORTAbits.RP2
+#define LED				LATAbits.LATA6
+#define WIFI_RST		LATAbits.LATA7
+#define RELAY0			LATBbits.LATB0
+#define RELAY1			LATBbits.LATB1
+#define RAM_CS			LATBbits.LATB3
+#define RAM_SCK			PORTBbits.RP8
+#define RAM_MISO		PORTBbits.RP5
+#define RAM_MOSI		PORTBbits.RP7
+#define DISP_CS			LATCbits.LATC2
+#define DISP_SCK		PORTCbits.SCK1
+#define DISP_MISO		PORTCbits.SDI1
+#define DISP_MOSI		PORTCbits.SDO1
+#define PC_RX			PORTCbits.RP11
+#define PC_TX			PORTCbits.RP12
 #define WIFI_RX			PORTCbits.TX1
 #define WIFI_TX			PORTCbits.RX1
-#define WIFI_GPIO0_IN	PORTCbits.RC5
-#define WIFI_GPIO2_IN	PORTCbits.RC4
-#define WIFI_GPIO0_OUT	LATCbits.LATC5
-#define WIFI_GPIO2_OUT	LATCbits.LATC4
-#define RELAY0			LATBbits.LATB1
-#define RELAY1			LATBbits.LATB2
-#define RAM_CS			LATAbits.LATA7
-#define BUTTON			PORTBbits.INT0
+
+// DEFINITIONS (OTHER)---------------------------------------------------------
+#define TX1_BUFFER_SIZE	32
+#define TX2_BUFFER_SIZE	32
+#define RX1_BUFFER_SIZE	32
+#define RX2_BUFFER_SIZE	32
+#define LINE_BUFFER_SIZE 80
 
 // GLOBAL VARIABLES------------------------------------------------------------
 extern volatile uint32_t _tick;
+extern volatile uint8_t _usartTargetTx, _usartTargetRx;
+extern volatile struct _ButtonInfo _button;
+extern volatile RingBuffer _txBuffer1, _txBuffer2, _rxBuffer1, _rxBuffer2;
+extern LineBuffer _lineBuffer1, _lineBuffer2;
 
 // FUNCTION PROTOTYPES---------------------------------------------------------
+// Initialization
 void InitializeOscillator(void);
 void InitializePorts(void);
 void InitializeTimers(void);
+void InitializeSpi(void);
+void InitializeUSART(void);
 void InitializeInterrupts(void);
+// Button Actions
+void ButtonPress(void);
+void ButtonHold(void);
+void ButtonRelease(void);
 
 #endif

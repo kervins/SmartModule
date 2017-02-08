@@ -1,8 +1,15 @@
+/* Project:	SmartModule
+ * File:	common_types.h
+ * Author:	Jonathan Ruisi
+ * Created:	March 17, 2016, 2:35 AM
+ */
+
 #ifndef COMMON_TYPES_H
 #define COMMON_TYPES_H
 
 #include <stdint.h>
 
+// Generic function pointer, typedef'd for readability
 typedef void (*Action)(void) ;
 
 typedef enum _MonthsOfYear
@@ -32,6 +39,8 @@ typedef enum _DaysOfWeek
 	SUNDAY		= 7
 } DaysOfWeek;
 
+// Condenses a complete date and time into an efficient 44b structure
+
 typedef struct _DateTime
 {
 	unsigned second		: 6;
@@ -49,6 +58,8 @@ typedef enum _IoDirection
 	Write	= 0,
 	Read	= 1
 } IoDirection;
+
+// Structure that allows any 8b value to be interpreted as 2-digit Binary Coded Decimal
 
 typedef union _BcdTwoDigit
 {
