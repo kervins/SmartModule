@@ -37,15 +37,7 @@ void main(void)
 
 	// Initialize data
 	uint32_t prevTick = 0;
-	_button.currentState = BTN_RELEASE;
-	_button.isDebouncing = false;
-	_button.isUnhandled = false;
-	_button.previousLogicLevel = 1;
-	_button.currentLogicLevel = 1;
-	_button.timestamp = 0;
-	_button.pressAction = ButtonPress;
-	_button.holdAction = ButtonHold;
-	_button.releaseAction = ButtonRelease;
+	_button = ButtonInfoCreate(ButtonPress, ButtonHold, ButtonRelease, 0);
 	char txBufferData1[TX1_BUFFER_SIZE] = {0};
 	char txBufferData2[TX2_BUFFER_SIZE] = {0};
 	char rxBufferData1[RX1_BUFFER_SIZE] = {0};
@@ -193,13 +185,37 @@ void InitializeSpi(void)
 
 void InitializeUSART(void)
 {
+	// USART1 (Debug connector on bottom of board)
+	// Calculate BRG value for desired baud rate = 115200
+	// 115200 = FOSC/[4(n+1)] = 48000000/[4(n+1)]  ->  n = 103.167
+	// Calculated baud rate = 48000000/[4(103+1)] = 115384.615
+	// Error = [(115384.615-115200)/115200]*100 = 0.160%  ->  Tests show good stability
+	SPBRGH1	= 0x00;
+	SPBRG1	= 0x67;
+	TXSTA1bits.BRGH		= true;		// High baud rate
+	BAUDCON1bits.BRG16	= true;		// Use 16-bit baud rate register
+	TXSTA1bits.SYNC		= false;	// Asynchronous mode
+
+	// Configure transmission
+	TXSTA1bits.TX9		= false;	// 8-bit transmission
+	BAUDCON1bits.TXCKP	= false;	// Idle state for transmit = HIGH
+	TXSTA1bits.TXEN		= true;		// Enable transmission
+
+	// Configure reception
+	RCSTA1bits.RX9		= false;	// 8-bit reception
+	BAUDCON1bits.RXDTP	= false;	// Receive data is not inverted (active-high)
+	RCSTA1bits.CREN		= true;		// Enable receiver
+
+	// Enable serial port
+	//RCSTA1bits.SPEN		= true;
+
 	// USART2 (Debug connector on bottom of board)
-	// Calculate BRG value for desired baud rate = 57600
-	// 57600 = FOSC/[4(n+1)] = 48000000/[4(n+1)]  ->  n = 207.33
-	// Calculated baud rate = 48000000/[4(207+1)] = 57692.31
-	// Error = [(57692.31-57600)/57600]*100 = 0.160%  ->  Tests show good stability
+	// Calculate BRG value for desired baud rate = 115200
+	// 115200 = FOSC/[4(n+1)] = 48000000/[4(n+1)]  ->  n = 103.167
+	// Calculated baud rate = 48000000/[4(103+1)] = 115384.615
+	// Error = [(115384.615-115200)/115200]*100 = 0.160%  ->  Tests show good stability
 	SPBRGH2	= 0x00;
-	SPBRG2	= 0xCF;
+	SPBRG2	= 0x67;
 	TXSTA2bits.BRGH		= true;		// High baud rate
 	BAUDCON2bits.BRG16	= true;		// Use 16-bit baud rate register
 	TXSTA2bits.SYNC		= false;	// Asynchronous mode
@@ -229,6 +245,12 @@ void InitializeInterrupts(void)
 	IPR3bits.TMR4IP	= 1;	// High priority
 	PIE3bits.TMR4IE	= 1;	// Enable
 
+	// Configure USART1 interrupts
+	IPR1bits.TX1IP	= 0;	// Low priority TX interrupt
+	IPR1bits.RC1IP	= 0;	// Low priority RX interrupt
+	//PIE1bits.TX1IE	= 1;	// Enable TX interrupt **This is done in putch(), not here**
+	PIE1bits.RC1IE	= 1;	// Enable RX interrupt
+
 	// Configure USART2 interrupts
 	IPR3bits.TX2IP	= 0;	// Low priority TX interrupt
 	IPR3bits.RC2IP	= 0;	// Low priority RX interrupt
@@ -249,7 +271,7 @@ void InitializeInterrupts(void)
 
 void ButtonPress(void)
 {
-	_lineBuffer2.isReceiving = true;
+	;
 }
 
 void ButtonHold(void)

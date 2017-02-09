@@ -10,6 +10,21 @@
 
 // FUNCTIONS-------------------------------------------------------------------
 
+ButtonInfo ButtonInfoCreate(Action pressAction, Action holdAction, Action releaseAction, bool activeLogicLevel)
+{
+	ButtonInfo button;
+	button.currentLogicLevel = !activeLogicLevel;
+	button.previousLogicLevel = !activeLogicLevel;
+	button.currentState = BTN_RELEASE;
+	button.isDebouncing = false;
+	button.isUnhandled = false;
+	button.timestamp = 0;
+	button.pressAction = pressAction;
+	button.holdAction = holdAction;
+	button.releaseAction = releaseAction;
+	return button;
+}
+
 void UpdateButtonState(volatile ButtonInfo* buttonInfo, bool currentLogicLevel)
 {
 	if(!buttonInfo->isDebouncing)

@@ -44,7 +44,7 @@ void __interrupt(low_priority) isrLowPriority(void)
 	}
 	else if(PIR1bits.TX1IF)
 	{
-		if(_txBuffer2.length == 0)
+		if(_txBuffer1.length == 0)
 			PIE1bits.TX1IE = false;
 		else
 		{
