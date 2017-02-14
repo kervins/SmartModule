@@ -7,9 +7,6 @@
 #ifndef MAIN_H
 #define MAIN_H
 
-#include "buffer.h"
-
-
 // DEFINITIONS (OSCILLATOR)----------------------------------------------------
 #define	FOSC	48000000L	// PLL generated system clock frequency	(48 MHz)
 #define	FCY		FOSC/4		// Instruction cycle frequency			(12 MHz)
@@ -38,27 +35,18 @@
 #define WIFI_RX			PORTCbits.TX1
 #define WIFI_TX			PORTCbits.RX1
 
-// DEFINITIONS (OTHER)---------------------------------------------------------
-#define TX1_BUFFER_SIZE	32
-#define TX2_BUFFER_SIZE	32
-#define RX1_BUFFER_SIZE	32
-#define RX2_BUFFER_SIZE	32
-#define LINE_BUFFER_SIZE 80
-
 // GLOBAL VARIABLES------------------------------------------------------------
 extern volatile uint32_t _tick;
-extern volatile uint8_t _usartTargetTx, _usartTargetRx;
-extern volatile struct _ButtonInfo _button;
-extern volatile RingBuffer _txBuffer1, _txBuffer2, _rxBuffer1, _rxBuffer2;
-extern LineBuffer _lineBuffer1, _lineBuffer2;
 
 // FUNCTION PROTOTYPES---------------------------------------------------------
 // Initialization
 void InitializeOscillator(void);
+void InitializeWDT(void);
 void InitializePorts(void);
 void InitializeTimers(void);
 void InitializeSpi(void);
 void InitializeUSART(void);
+void InitializeRTCC(void);
 void InitializeInterrupts(void);
 // Button Actions
 void ButtonPress(void);

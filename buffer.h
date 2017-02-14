@@ -1,7 +1,7 @@
 /* Project:	SmartModule
  * File:	buffer.h
  * Author:	Jonathan Ruisi
- * Created:	December 20, 2016, 7:52 PM
+ * Created:	February 7, 2017, 11:52 PM
  */
 
 #ifndef BUFFER_H

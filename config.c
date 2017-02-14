@@ -1,7 +1,7 @@
 // PIC18F27J13 Configuration Bit Settings
 
 // CONFIG1L
-#pragma config WDTEN		= ON			// Watchdog Timer
+#pragma config WDTEN		= OFF			// Watchdog Timer
 #pragma config PLLDIV		= 2				// 96MHz PLL Prescaler Selection
 #pragma config CFGPLLEN		= ON			// PLL Enable Configuration Bit
 #pragma config STVREN		= ON			// Stack Overflow/Underflow Reset

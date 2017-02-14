@@ -1,7 +1,7 @@
 /* Project:	SmartModule
  * File:	buffer.c
  * Author:	Jonathan Ruisi
- * Created:	December 20, 2016, 7:52 PM
+ * Created:	February 7, 2017, 11:52 PM
  */
 
 #include <xc.h>
@@ -42,9 +42,8 @@ void RingBufferEnqueue(volatile RingBuffer* buffer, char data)
 
 char RingBufferDequeue(volatile RingBuffer* buffer)
 {
-	// Cannot throw exception here, but that would be appropriate...
 	if(buffer->length == 0)
-		return 0;
+		return -1;
 
 	char data = buffer->data[buffer->tail];
 	buffer->tail = (buffer->tail + 1) % buffer->bufferSize;

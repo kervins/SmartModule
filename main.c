@@ -13,15 +13,13 @@
 
 #include "main.h"
 #include "button.h"
-#include "buffer.h"
+#include "serial_comm.h"
+#include "sram.h"
+#include "wifi.h"
 #include "utility.h"
 
 // GLOBAL VARIABLES------------------------------------------------------------
 volatile uint32_t _tick = 0;	// Global timekeeping variable (not related to RTCC)
-volatile uint8_t _usartTargetTx = 0, _usartTargetRx = 0;	// Must be set to either 1 or 2 as needed
-volatile ButtonInfo _button;
-volatile RingBuffer _txBuffer1, _txBuffer2, _rxBuffer1, _rxBuffer2;
-LineBuffer _lineBuffer1, _lineBuffer2;
 
 // PROGRAM ENTRY---------------------------------------------------------------
 
@@ -29,91 +27,96 @@ void main(void)
 {
 	// Initialize device
 	InitializeOscillator();
+	InitializeWDT();
 	InitializePorts();
 	InitializeTimers();
-	//InitializeSpi();
+	InitializeSpi();
 	InitializeUSART();
 	InitializeInterrupts();
 
 	// Initialize data
 	uint32_t prevTick = 0;
 	_button = ButtonInfoCreate(ButtonPress, ButtonHold, ButtonRelease, 0);
-	char txBufferData1[TX1_BUFFER_SIZE] = {0};
-	char txBufferData2[TX2_BUFFER_SIZE] = {0};
-	char rxBufferData1[RX1_BUFFER_SIZE] = {0};
-	char rxBufferData2[RX2_BUFFER_SIZE] = {0};
-	char lineBufferData1[LINE_BUFFER_SIZE];
-	char lineBufferData2[LINE_BUFFER_SIZE];
-	_txBuffer1 = RingBufferCreate(TX1_BUFFER_SIZE, txBufferData1);
-	_txBuffer2 = RingBufferCreate(TX2_BUFFER_SIZE, txBufferData2);
-	_rxBuffer1 = RingBufferCreate(RX1_BUFFER_SIZE, rxBufferData1);
-	_rxBuffer2 = RingBufferCreate(RX2_BUFFER_SIZE, rxBufferData2);
-	_lineBuffer1 = LineBufferCreate(LINE_BUFFER_SIZE, lineBufferData1);
-	_lineBuffer2 = LineBufferCreate(LINE_BUFFER_SIZE, lineBufferData2);
+	char txBufferData1[TX_BUFFER_SIZE] = {0};
+	char txBufferData2[TX_BUFFER_SIZE] = {0};
+	char rxBufferData1[RX_BUFFER_SIZE] = {0};
+	char rxBufferData2[RX_BUFFER_SIZE] = {0};
+	_txBuffer1 = RingBufferCreate(TX_BUFFER_SIZE, txBufferData1);
+	_txBuffer2 = RingBufferCreate(TX_BUFFER_SIZE, txBufferData2);
+	_rxBuffer1 = RingBufferCreate(RX_BUFFER_SIZE, rxBufferData1);
+	_rxBuffer2 = RingBufferCreate(RX_BUFFER_SIZE, rxBufferData2);
+	_commStatus1.status = 0;
+	_commStatus2.status = 0;
+	_commStatus1.statusBits.isRxFlowControl = false;
+	_commStatus2.statusBits.isRxFlowControl = true;
+	_sramStatus.dataLength = 0;
+	_sramStatus.readAddress = 0;
+	_sramStatus.writeAddress = 0;
+	_sramStatus.status = 0;
 
 	// Start tick timer (Timer 4)
 	T4CONbits.TMR4ON = true;
 
+	// Initialize SRAM mode: HOLD function disabled, burst write
+	SramMode mode;
+	mode.holdDisabled = true;
+	mode.mode = SRAM_MODE_BURST;
+	SramSetMode(mode);
+
+	// Blank entire SRAM array (fill with 0x00)
+	SramFill(0x000000, SRAM_CAPACITY, 0x00);
+
 	// Main program loop
 	while(true)
 	{
-		// Check if button status has changed and perform appropriate action
+		// BUTTON------------------------------------------
 		CheckButton(&_button);
 
+		// USART-------------------------------------------
+		if(_commStatus1.statusBits.isRxFlowControl)
+			CheckFlowControlRx1();
 		if(_rxBuffer1.length > 0)
-		{
-			_usartTargetRx = 1;
-			if(_lineBuffer1.isReceiving && !_lineBuffer1.isComplete)
-			{
-				_lineBuffer1.data[_lineBuffer1.length] = getch();
-				if(_lineBuffer1.data[_lineBuffer1.length] == 0)
-				{
-					_lineBuffer1.isComplete = true;
-					_lineBuffer1.isReceiving = false;
-				}
-				_lineBuffer1.length++;
-			}
-			else
-			{
-				_usartTargetTx = 1;
-				putch(getch());
-			}
-		}
+			putch2(getch1());
 
+		if(_commStatus2.statusBits.isRxFlowControl)
+			CheckFlowControlRx2();
 		if(_rxBuffer2.length > 0)
+			putch1(getch2());
+
+		// SRAM--------------------------------------------
+		if(_sramStatus.statusBits.isContinuousFill && !_sramStatus.statusBits.isBusyFill)
+			SramFillNext();
+
+		if(!_sramStatus.statusBits.isBusyRead && _sramStatus.statusBits.hasUnreadData)
 		{
-			_usartTargetRx = 2;
-			if(_lineBuffer2.isReceiving && !_lineBuffer2.isComplete)
+			char number[8];
+			ltoa(number, _sramStatus.readAddress - _sramStatus.dataLength, 16);
+			printf("READ ADDRESS = 0x%s\n\r", number);
+			int i;
+			for(i = 0; i < _sramStatus.dataLength; i++)
 			{
-				_lineBuffer2.data[_lineBuffer2.length] = getch();
-				if(_lineBuffer2.data[_lineBuffer2.length] == 0)
-				{
-					_lineBuffer2.isComplete = true;
-					_lineBuffer2.isReceiving = false;
-				}
-				_lineBuffer2.length++;
+				putch2(_sramBuffer.receive.rxData[i]);
 			}
-			else
-			{
-				_usartTargetTx = 2;
-				putch(getch());
-			}
+			_sramStatus.statusBits.hasUnreadData = false;
 		}
 
-		if(_lineBuffer1.isComplete)
+		// WIFI--------------------------------------------
+		// 5 seconds after startup, release WiFi module from reset
+		if(_wifiConnectStatus == 0 && _tick > 5000)
 		{
-			_usartTargetTx = 1;
-			printf("%s\n\r", _lineBuffer1.data);
-			_lineBuffer1.isComplete = false;
-			_lineBuffer1.length = 0;
+			WIFI_RST = 1;
+			_wifiConnectStatus = 1;
+			RCSTA1bits.SPEN	= true;
 		}
 
-		if(_lineBuffer2.isComplete)
+		// After WiFi is released from reset, wait for WiFi initialization to complete, then enable USART1
+		if(_wifiConnectStatus == 1 && _tick > 6000)
 		{
-			_usartTargetTx = 2;
-			printf("%s\n\r", _lineBuffer2.data);
-			_lineBuffer2.isComplete = false;
-			_lineBuffer2.length = 0;
+			putch1('A');
+			putch1('T');
+			putch1('\r');
+			putch1('\n');
+			_wifiConnectStatus = 2;
 		}
 	}
 	return;
@@ -129,6 +132,15 @@ void InitializeOscillator(void)
 	REFOCONbits.ROSEL	= 0;		// Source = FOSC
 	REFOCONbits.RODIV	= 0;		// Source not scaled
 	REFOCONbits.ROON	= false;	// Output enable
+}
+
+void InitializeWDT(void)
+{
+	WDTCONbits.REGSLP	= 1;	// On-chip regulator enters low-power operation when device enters Sleep mode
+	WDTCONbits.VBGOE	= 0;	// Band gap reference output is disabled
+	WDTCONbits.ULPEN	= 0;	// Ultra low-power wake-up module is disabled
+	WDTCONbits.ULPSINK	= 0;	// Ultra low-power wake-up current sink is disabled
+	WDTCONbits.SWDTEN	= 0;	// Watchdog timer is off
 }
 
 void InitializePorts(void)
@@ -153,12 +165,13 @@ void InitializePorts(void)
 	EECON2 = 0x55;			// PPS register unlock sequence
 	EECON2 = 0xAA;
 	PPSCONbits.IOLOCK = 0;	// Unlock PPS registers
-	RPINR1	= 0x02;			// Assign External Interrupt 1		(INT1) to RP2 (PORTA<5>)
-	RPINR21	= 0x05;			// Assign SPI2 Data Input			(SDI2) to RP5 (PORTB<2>)
-	RPINR16	= 0x0C;			// Assign USART2 Async. Receive		(RX2) to RP12 (PORTC<1>)
-	RPOR7	= 0x0A;			// Assign SPI2 Data Output			(SDO2) to RP7 (PORTB<4>)
-	RPOR8	= 0x0B;			// Assign SPI2 Clock Output			(SCK2) to RP8 (PORTB<5>)
-	RPOR11	= 0x06;			// Assign USART2 Async. Transmit	(TX2) to RP11 (PORTC<0>)
+	RPINR1	= 0x02;			// Assign External Interrupt 1		(INT1) to RP2	(PORTA<5>)
+	RPINR21	= 0x05;			// Assign SPI2 Data Input			(SDI2) to RP5	(PORTB<2>)
+	RPINR22	= 0x08;			// Assign SPI2 Clock Input			(SCK2IN) to RP8	(PORTB<5>)
+	RPINR16	= 0x0C;			// Assign USART2 Async. Receive		(RX2) to RP12	(PORTC<1>)
+	RPOR7	= 0x0A;			// Assign SPI2 Data Output			(SDO2) to RP7	(PORTB<4>)
+	RPOR8	= 0x0B;			// Assign SPI2 Clock Output			(SCK2) to RP8	(PORTB<5>)
+	RPOR11	= 0x06;			// Assign USART2 Async. Transmit	(TX2) to RP11	(PORTC<0>)
 	PPSCONbits.IOLOCK = 1;	// Lock PPS registers
 }
 
@@ -174,13 +187,24 @@ void InitializeTimers(void)
 
 void InitializeSpi(void)
 {
-	// Configure SPI2 module for master mode operation
-	SSP2STATbits.CKE	= 0;	// Transmit occurs on transition from Idle to active clock state
-	SSP2STATbits.SMP	= 1;	// Input data sampled at the end of data output time
-	SSP2CON1bits.CKP	= 0;	// Idle state for clock is a low level
-	SSP2CON1bits.SSPM	= 0x0;	// SPI Master mode, clock = FOSC/4
-	ODCON3bits.SPI2OD	= 0;	// Open-drain capability is disabled
-	SSP2CON1bits.SSPEN	= 1;	// Enable SPI2
+	// Configure SPI2 module for master mode operation (Mode 0)
+	ODCON3bits.SPI2OD	= 0;		// Open-drain capability is disabled
+	SSP2CON1bits.CKP	= 0;		// Idle state for clock is a low level
+	SSP2STATbits.CKE	= 1;		// Transmit occurs on transition from active to idle clock state
+	SSP2STATbits.SMP	= 0;		// Input data sampled at the middle of data output time
+	SSP2CON1bits.SSPM	= 0b0000;	// SPI Master mode, clock = FOSC/4
+	SSP2CON1bits.SSPEN	= 1;		// Enable SPI2
+
+	// Configure SPI2 DMA
+	DMACON1bits.SSCON1		= 0;	// SSDMA pin is not controlled by the DMA module
+	DMACON1bits.SSCON0		= 0;
+	DMACON1bits.DUPLEX1		= 1;	// SPI DMA operates in Full-Duplex mode
+	DMACON1bits.DUPLEX0		= 0;
+	DMACON1bits.TXINC		= 1;	// The transmit address is to be incremented from the initial value of TXADDR<11:0>
+	DMACON1bits.RXINC		= 1;	// The received address is to be incremented from the initial value of RXADDR<11:0>
+	DMACON1bits.DLYINTEN	= 0;	// Disable delay interrupt
+	DMACON2bits.DLYCYC		= 0x0;	// Additional inter-byte delay during transfer = 0
+	DMACON2bits.INTLVL		= 0x0;	// Generate interrupt when DMA transfer is complete
 }
 
 void InitializeUSART(void)
@@ -234,6 +258,11 @@ void InitializeUSART(void)
 	RCSTA2bits.SPEN		= true;
 }
 
+void InitializeRTCC(void)
+{
+	;
+}
+
 void InitializeInterrupts(void)
 {
 	// Configure external interrupt (pushbutton = active LOW on INT1 mapped to RP2)
@@ -248,18 +277,18 @@ void InitializeInterrupts(void)
 	// Configure USART1 interrupts
 	IPR1bits.TX1IP	= 0;	// Low priority TX interrupt
 	IPR1bits.RC1IP	= 0;	// Low priority RX interrupt
-	//PIE1bits.TX1IE	= 1;	// Enable TX interrupt **This is done in putch(), not here**
+	//PIE1bits.TX1IE= 1;	// Enable TX interrupt **This is done in putch(), not here**
 	PIE1bits.RC1IE	= 1;	// Enable RX interrupt
 
 	// Configure USART2 interrupts
 	IPR3bits.TX2IP	= 0;	// Low priority TX interrupt
 	IPR3bits.RC2IP	= 0;	// Low priority RX interrupt
-	//PIE3bits.TX2IE	= 1;	// Enable TX interrupt **This is done in putch(), not here**
+	//PIE3bits.TX2IE= 1;	// Enable TX interrupt **This is done in putch(), not here**
 	PIE3bits.RC2IE	= 1;	// Enable RX interrupt
 
 	// Configure SPI2 interrupts
-	//IPR3bits.SSP2IP	= 0;	// Low priority
-	//PIE3bits.SSP2IE	= 1;	// Enable
+	IPR3bits.SSP2IP	= 0;	// Low priority
+	PIE3bits.SSP2IE	= 1;	// Enable
 
 	// Enable interrupts
 	RCONbits.IPEN	= 1;	// Set prioritized interrupt mode
@@ -282,68 +311,4 @@ void ButtonHold(void)
 void ButtonRelease(void)
 {
 	;
-}
-
-// STDIO FUNCTIONS-------------------------------------------------------------
-
-char getch(void)
-{
-	char data = 0;
-	if(_usartTargetRx == 1)
-	{
-		data = RingBufferDequeue(&_rxBuffer1);
-	}
-	else if (_usartTargetRx == 2)
-	{
-		data = RingBufferDequeue(&_rxBuffer2);
-	}
-	return data;
-}
-
-// Writes a character to stdout, or in this case, USART1 or USART2
-// Before calling any functions that print to stdout,
-// make sure to specify the target USART by setting _usartTargetTx to 1 or 2.
-// All stdout functions will utilize this function, such as printf().
-// A ring buffer is used so that USART transmission can be interrupt driven.
-// In cases where the buffer becomes full, transmission will temporarily
-// switch to polling mode in order to flush the buffer and avoid data loss.
-
-void putch(char data)
-{
-	if(_usartTargetTx == 1)
-	{
-		RingBufferEnqueue(&_txBuffer1, data);		// Add character to TX buffer
-		if(_txBuffer1.length == TX1_BUFFER_SIZE)	// If buffer is full, switch to polling mode and flush buffer
-		{
-			PIE1bits.TX1IE	= false;
-			while(_txBuffer1.length > 0)
-			{
-				while(!PIR1bits.TX1IF)
-				{
-					continue;
-				}
-				char character = RingBufferDequeue(&_txBuffer1);
-				TXREG1 = character;
-			}
-		}
-		PIE1bits.TX1IE	= true;						// Enable TX interrupt - this will interrupt immediately
-	}
-	else if(_usartTargetTx == 2)
-	{
-		RingBufferEnqueue(&_txBuffer2, data);
-		if(_txBuffer2.length == TX2_BUFFER_SIZE)
-		{
-			PIE3bits.TX2IE	= false;
-			while(_txBuffer2.length > 0)
-			{
-				while(!PIR3bits.TX2IF)
-				{
-					continue;
-				}
-				char character = RingBufferDequeue(&_txBuffer2);
-				TXREG2 = character;
-			}
-		}
-		PIE3bits.TX2IE	= true;
-	}
 }

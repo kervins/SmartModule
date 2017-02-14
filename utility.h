@@ -27,6 +27,6 @@
 #define bitmask_flip(var, mask)		(var ^= (mask))
 
 // Byte
-#define GET_BYTE(value,byteIndex) (uint8_t)(value>>(8*byteIndex))
+#define GET_BYTE(value,byteIndex) (uint8_t)((value>>(8*byteIndex))&0xFF)
 
 #endif

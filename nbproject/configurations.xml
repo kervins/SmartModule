@@ -9,7 +9,9 @@
       <itemPath>utility.h</itemPath>
       <itemPath>interrupt.h</itemPath>
       <itemPath>button.h</itemPath>
-      <itemPath>buffer.h</itemPath>
+      <itemPath>sram.h</itemPath>
+      <itemPath>serial_comm.h</itemPath>
+      <itemPath>wifi.h</itemPath>
     </logicalFolder>
     <logicalFolder name="LinkerScript"
                    displayName="Linker Files"
@@ -22,7 +24,9 @@
       <itemPath>main.c</itemPath>
       <itemPath>interrupt.c</itemPath>
       <itemPath>button.c</itemPath>
-      <itemPath>buffer.c</itemPath>
+      <itemPath>sram.c</itemPath>
+      <itemPath>serial_comm.c</itemPath>
+      <itemPath>wifi.c</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"

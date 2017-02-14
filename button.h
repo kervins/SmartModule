@@ -36,6 +36,9 @@ typedef struct _ButtonInfo
 	Action releaseAction;
 } ButtonInfo;
 
+// GLOBAL VARIABLES------------------------------------------------------------
+extern volatile struct _ButtonInfo _button;
+
 // FUNCTION PROTOTYPES---------------------------------------------------------
 ButtonInfo ButtonInfoCreate(Action pressAction, Action holdAction, Action releaseAction, bool activeLogicLevel);
 void UpdateButtonState(volatile ButtonInfo* buttonInfo, bool currentLogicLevel);

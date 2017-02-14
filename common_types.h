@@ -39,7 +39,7 @@ typedef enum _DaysOfWeek
 	SUNDAY		= 7
 } DaysOfWeek;
 
-// Condenses a complete date and time into an efficient 44b structure
+// Condenses a complete date and time into an efficient 43b structure
 
 typedef struct _DateTime
 {
@@ -50,7 +50,6 @@ typedef struct _DateTime
 	unsigned day		: 5;
 	unsigned month		: 4;
 	unsigned year		: 14;
-	unsigned is24Hour	: 1;
 } DateTime;
 
 typedef enum _IoDirection
