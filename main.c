@@ -101,22 +101,24 @@ void main(void)
 		}
 
 		// WIFI--------------------------------------------
-		// 5 seconds after startup, release WiFi module from reset
-		if(_wifiConnectStatus == 0 && _tick > 5000)
+		// 2 seconds after startup (or WiFi reset), release WiFi module from reset
+		if(_wifiStatus == WIFI_STATUS_RESET_RELEASE && (_tick - _wifiTimestamp > 2000))
 		{
 			WIFI_RST = 1;
-			_wifiConnectStatus = 1;
-			RCSTA1bits.SPEN	= true;
+			_wifiStatus = WIFI_STATUS_BOOT1;
+			_wifiTimestamp = _tick;
 		}
 
-		// After WiFi is released from reset, wait for WiFi initialization to complete, then enable USART1
-		if(_wifiConnectStatus == 1 && _tick > 6000)
+		// After WiFi is released from reset, wait for WiFi initialization to complete,
+		// then change USART1 baud rate from 76800 to 115200
+		if(_wifiStatus == WIFI_STATUS_BOOT1 && (_tick - _wifiTimestamp > 100))
 		{
-			putch1('A');
-			putch1('T');
-			putch1('\r');
-			putch1('\n');
-			_wifiConnectStatus = 2;
+			RCSTA1bits.SPEN	= false;
+			SPBRGH1	= GET_BYTE(CALCULATE_BRG_16H(115200), 1);
+			SPBRG1	= GET_BYTE(CALCULATE_BRG_16H(115200), 0);
+			RCSTA1bits.SPEN	= true;
+			_wifiStatus = WIFI_STATUS_BOOT2;
+			_wifiTimestamp = _tick;
 		}
 	}
 	return;
@@ -209,51 +211,37 @@ void InitializeSpi(void)
 
 void InitializeUSART(void)
 {
-	// USART1 (Debug connector on bottom of board)
-	// Calculate BRG value for desired baud rate = 115200
-	// 115200 = FOSC/[4(n+1)] = 48000000/[4(n+1)]  ->  n = 103.167
-	// Calculated baud rate = 48000000/[4(103+1)] = 115384.615
-	// Error = [(115384.615-115200)/115200]*100 = 0.160%  ->  Tests show good stability
-	SPBRGH1	= 0x00;
-	SPBRG1	= 0x67;
+	// USART1 (ESP8266 WiFi module)
+	SPBRGH1	= GET_BYTE(CALCULATE_BRG_16H(76800), 1);
+	SPBRG1	= GET_BYTE(CALCULATE_BRG_16H(76800), 0);
 	TXSTA1bits.BRGH		= true;		// High baud rate
 	BAUDCON1bits.BRG16	= true;		// Use 16-bit baud rate register
 	TXSTA1bits.SYNC		= false;	// Asynchronous mode
-
 	// Configure transmission
 	TXSTA1bits.TX9		= false;	// 8-bit transmission
 	BAUDCON1bits.TXCKP	= false;	// Idle state for transmit = HIGH
 	TXSTA1bits.TXEN		= true;		// Enable transmission
-
 	// Configure reception
 	RCSTA1bits.RX9		= false;	// 8-bit reception
 	BAUDCON1bits.RXDTP	= false;	// Receive data is not inverted (active-high)
 	RCSTA1bits.CREN		= true;		// Enable receiver
-
 	// Enable serial port
-	//RCSTA1bits.SPEN		= true;
+	RCSTA1bits.SPEN		= true;
 
 	// USART2 (Debug connector on bottom of board)
-	// Calculate BRG value for desired baud rate = 115200
-	// 115200 = FOSC/[4(n+1)] = 48000000/[4(n+1)]  ->  n = 103.167
-	// Calculated baud rate = 48000000/[4(103+1)] = 115384.615
-	// Error = [(115384.615-115200)/115200]*100 = 0.160%  ->  Tests show good stability
-	SPBRGH2	= 0x00;
-	SPBRG2	= 0x67;
+	SPBRGH2	= GET_BYTE(CALCULATE_BRG_16H(115200), 1);
+	SPBRG2	= GET_BYTE(CALCULATE_BRG_16H(115200), 0);
 	TXSTA2bits.BRGH		= true;		// High baud rate
 	BAUDCON2bits.BRG16	= true;		// Use 16-bit baud rate register
 	TXSTA2bits.SYNC		= false;	// Asynchronous mode
-
 	// Configure transmission
 	TXSTA2bits.TX9		= false;	// 8-bit transmission
 	BAUDCON2bits.TXCKP	= false;	// Idle state for transmit = HIGH
 	TXSTA2bits.TXEN		= true;		// Enable transmission
-
 	// Configure reception
 	RCSTA2bits.RX9		= false;	// 8-bit reception
 	BAUDCON2bits.RXDTP	= false;	// Receive data is not inverted (active-high)
 	RCSTA2bits.CREN		= true;		// Enable receiver
-
 	// Enable serial port
 	RCSTA2bits.SPEN		= true;
 }
@@ -300,7 +288,7 @@ void InitializeInterrupts(void)
 
 void ButtonPress(void)
 {
-	;
+	WifiReset();
 }
 
 void ButtonHold(void)

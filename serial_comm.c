@@ -50,7 +50,7 @@ char RingBufferDequeue(volatile RingBuffer* buffer)
 
 // STDIO FUNCTIONS-------------------------------------------------------------
 
-char getch(void)
+/*char getch(void)
 {
 	if(_commStatus1.statusBits.isRxTarget)
 		return getch1();
@@ -65,7 +65,7 @@ void putch(char data)
 		putch1(data);
 	if(_commStatus2.statusBits.isTxTarget)
 		putch2(data);
-}
+}*/
 
 char getch1(void)
 {

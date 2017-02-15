@@ -5,10 +5,12 @@
         <group>
             <file>file:/C:/Users/Jonathan/OneDrive/Development/MPLABX/Projects/SmartModule.X/sram.h</file>
             <file>file:/C:/Users/Jonathan/OneDrive/Development/MPLABX/Projects/SmartModule.X/serial_comm.h</file>
+            <file>file:/C:/Users/Jonathan/OneDrive/Development/MPLABX/Projects/SmartModule.X/wifi.c</file>
             <file>file:/C:/Users/Jonathan/OneDrive/Development/MPLABX/Projects/SmartModule.X/interrupt.c</file>
             <file>file:/C:/Users/Jonathan/OneDrive/Development/MPLABX/Projects/SmartModule.X/serial_comm.c</file>
             <file>file:/C:/Users/Jonathan/OneDrive/Development/MPLABX/Projects/SmartModule.X/main.h</file>
             <file>file:/C:/Users/Jonathan/OneDrive/Development/MPLABX/Projects/SmartModule.X/sram.c</file>
+            <file>file:/C:/Users/Jonathan/OneDrive/Development/MPLABX/Projects/SmartModule.X/wifi.h</file>
             <file>file:/C:/Users/Jonathan/OneDrive/Development/MPLABX/Projects/SmartModule.X/main.c</file>
         </group>
     </open-files>

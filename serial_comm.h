@@ -7,6 +7,13 @@
 #ifndef SERIAL_COMM_H
 #define SERIAL_COMM_H
 
+// MACROS (Calculates SPBRG values for USART baud rate generator)--------------
+// Each definition contains a value that is to be loaded into the BRG registers (SPBRGHx:SPBRGx)
+#define CALCULATE_BRG(rate)		((FOSC/rate)/64)-1	// BRG16 = 0, BRGH = 0
+#define CALCULATE_BRG_H(rate)	((FOSC/rate)/16)-1	// BRG16 = 0, BRGH = 1
+#define CALCULATE_BRG_16(rate)	((FOSC/rate)/16)-1	// BRG16 = 1, BRGH = 0
+#define CALCULATE_BRG_16H(rate)	((FOSC/rate)/4)-1	// BRG16 = 1, BRGH = 1
+
 // DEFINITIONS-----------------------------------------------------------------
 #define XON					0x11	// Software flow control XON character
 #define XOFF				0x13	// Software flow control XOFF character
@@ -19,32 +26,26 @@
 
 typedef struct _RingBuffer
 {
-	uint8_t bufferSize;
-	uint8_t length;
-	uint8_t head;
-	uint8_t tail;
+	uint16_t bufferSize;
+	uint16_t length;
+	uint16_t head;
+	uint16_t tail;
 	char* data;
 } RingBuffer;
 
-typedef struct _CommStatus
+typedef union _CommStatus
 {
 
-	union
+	struct
 	{
-
-		struct
-		{
-			unsigned isRxTarget : 1;
-			unsigned isTxTarget : 1;
-			unsigned isRxPaused : 1;
-			unsigned isTxPaused : 1;
-			unsigned isRxFlowControl : 1;
-			unsigned : 3;
-		} statusBits;
-		uint8_t status;
-	} ;
-	RingBuffer* rxBuffer;
-	RingBuffer* txBuffer;
+		unsigned isRxTarget : 1;
+		unsigned isTxTarget : 1;
+		unsigned isRxPaused : 1;
+		unsigned isTxPaused : 1;
+		unsigned isRxFlowControl : 1;
+		unsigned : 3;
+	} statusBits;
+	uint8_t status;
 } CommStatus;
 
 // GLOBAL VARIABLES------------------------------------------------------------
