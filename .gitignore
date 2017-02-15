@@ -1,3 +1,5 @@
 /dist/
 /debug/
 /build/
+buffer.h
+buffer.c
