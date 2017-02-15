@@ -13,7 +13,7 @@ volatile ButtonInfo _button;
 
 // FUNCTIONS-------------------------------------------------------------------
 
-ButtonInfo ButtonInfoCreate(Action pressAction, Action hholdAction, Action releaseAction, bool activeLogicLevel)
+ButtonInfo ButtonInfoCreate(Action pressAction, Action holdAction, Action releaseAction, bool activeLogicLevel)
 {
 	ButtonInfo button;
 	button.currentLogicLevel = !activeLogicLevel;
