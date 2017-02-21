@@ -16,6 +16,7 @@
 #include "serial_comm.h"
 #include "sram.h"
 #include "wifi.h"
+#include "shell.h"
 #include "utility.h"
 
 // GLOBAL VARIABLES------------------------------------------------------------
@@ -25,6 +26,9 @@ volatile uint32_t _tick = 0;	// Global timekeeping variable (not related to RTCC
 
 void main(void)
 {
+	// TODO:  Make SRAM file system
+	// TODO:  Make shell
+
 	// Initialize device
 	InitializeOscillator();
 	InitializeWDT();
@@ -54,17 +58,21 @@ void main(void)
 	_sramStatus.writeAddress = 0;
 	_sramStatus.status = 0;
 
-	// Start tick timer (Timer 4)
-	T4CONbits.TMR4ON = true;
-
 	// Initialize SRAM mode: HOLD function disabled, burst write
 	SramMode mode;
+	mode.value = 0;
 	mode.holdDisabled = true;
 	mode.mode = SRAM_MODE_BURST;
 	SramSetMode(mode);
 
 	// Blank entire SRAM array (fill with 0x00)
-	SramFill(0x000000, SRAM_CAPACITY, 0x00);
+	SramFill(0x000000, SRAM_CAPACITY, 0xFF);
+
+	// Initialize shell
+	InitializeShell();
+
+	// Start tick timer (Timer 4)
+	T4CONbits.TMR4ON = true;
 
 	// Main program loop
 	while(true)
@@ -75,19 +83,21 @@ void main(void)
 		// USART-------------------------------------------
 		if(_commStatus1.statusBits.isRxFlowControl)
 			CheckFlowControlRx1();
-		if(_rxBuffer1.length > 0)
-			putch2(getch1());
-
 		if(_commStatus2.statusBits.isRxFlowControl)
 			CheckFlowControlRx2();
-		if(_rxBuffer2.length > 0)
-			putch1(getch2());
 
 		// SRAM--------------------------------------------
-		if(_sramStatus.statusBits.isContinuousFill && !_sramStatus.statusBits.isBusyFill)
-			SramFillNext();
+		if(!_sramStatus.statusBits.isBusy)
+		{
+			if(_sramStatus.statusBits.isReading)
+				SramReadContinue();
+			if(_sramStatus.statusBits.isWriting)
+				SramWriteContinue();
+			if(_sramStatus.statusBits.isFilling)
+				SramFillContinue();
+		}
 
-		if(!_sramStatus.statusBits.isBusyRead && _sramStatus.statusBits.hasUnreadData)
+		if(!_sramStatus.statusBits.isBusy && _sramStatus.statusBits.hasUnreadData)
 		{
 			char number[8];
 			ltoa(number, _sramStatus.readAddress - _sramStatus.dataLength, 16);
@@ -95,7 +105,7 @@ void main(void)
 			int i;
 			for(i = 0; i < _sramStatus.dataLength; i++)
 			{
-				putch2(_sramBuffer.receive.rxData[i]);
+				putch2(_sramPacket.data[i]);
 			}
 			_sramStatus.statusBits.hasUnreadData = false;
 		}
@@ -120,6 +130,14 @@ void main(void)
 			_wifiStatus = WIFI_STATUS_BOOT2;
 			_wifiTimestamp = _tick;
 		}
+
+		// SHELL-------------------------------------------
+		if(_shell.hasLine)
+		{
+			ShellExecuteCommand();
+		}
+		else if(_shell.getLine)
+			ShellUpdateInput();
 	}
 	return;
 }
@@ -200,10 +218,7 @@ void InitializeSpi(void)
 	// Configure SPI2 DMA
 	DMACON1bits.SSCON1		= 0;	// SSDMA pin is not controlled by the DMA module
 	DMACON1bits.SSCON0		= 0;
-	DMACON1bits.DUPLEX1		= 1;	// SPI DMA operates in Full-Duplex mode
-	DMACON1bits.DUPLEX0		= 0;
-	DMACON1bits.TXINC		= 1;	// The transmit address is to be incremented from the initial value of TXADDR<11:0>
-	DMACON1bits.RXINC		= 1;	// The received address is to be incremented from the initial value of RXADDR<11:0>
+	DMACON1bits.DUPLEX1		= 0;	// Always operates in half-duplex mode (RX or TX is determined in SRAM functions)
 	DMACON1bits.DLYINTEN	= 0;	// Disable delay interrupt
 	DMACON2bits.DLYCYC		= 0x0;	// Additional inter-byte delay during transfer = 0
 	DMACON2bits.INTLVL		= 0x0;	// Generate interrupt when DMA transfer is complete
@@ -284,11 +299,28 @@ void InitializeInterrupts(void)
 	INTCONbits.GIEL	= 1;	// Enable low-priority interrupts
 }
 
+void InitializeShell(void)
+{
+	_shell.rxTarget = 2;
+	_shell.txTarget = 2;
+	_shell.getLine = true;
+	_shell.hasLine = false;
+	_shell.isEcho = true;
+	_shell.lineLength = 0;
+	printf("SmartModule\n\r");
+	ShellPrintVersion();
+	putch('\n');
+	putch('\r');
+	putch('\n');
+	putch('\r');
+	ShellPrintCommandLine();
+}
+
 // BUTTON ACTIONS--------------------------------------------------------------
 
 void ButtonPress(void)
 {
-	WifiReset();
+	;
 }
 
 void ButtonHold(void)

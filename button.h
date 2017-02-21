@@ -18,12 +18,12 @@
 
 // TYPE DEFINITIONS------------------------------------------------------------
 
-typedef enum _ButtonStates
+typedef enum
 {
 	BTN_PRESS, BTN_HOLD, BTN_RELEASE
 } ButtonStates;
 
-typedef struct _ButtonInfo
+typedef struct
 {
 	uint32_t timestamp;
 	ButtonStates currentState;
@@ -37,7 +37,7 @@ typedef struct _ButtonInfo
 } ButtonInfo;
 
 // GLOBAL VARIABLES------------------------------------------------------------
-extern volatile struct _ButtonInfo _button;
+extern volatile ButtonInfo _button;
 
 // FUNCTION PROTOTYPES---------------------------------------------------------
 ButtonInfo ButtonInfoCreate(Action pressAction, Action holdAction, Action releaseAction, bool activeLogicLevel);

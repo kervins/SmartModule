@@ -24,7 +24,7 @@
 
 // TYPE DEFINITIONS------------------------------------------------------------
 
-typedef struct _RingBuffer
+typedef struct
 {
 	uint16_t bufferSize;
 	uint16_t length;
@@ -33,17 +33,15 @@ typedef struct _RingBuffer
 	char* data;
 } RingBuffer;
 
-typedef union _CommStatus
+typedef union
 {
 
 	struct
 	{
-		unsigned isRxTarget : 1;
-		unsigned isTxTarget : 1;
 		unsigned isRxPaused : 1;
 		unsigned isTxPaused : 1;
 		unsigned isRxFlowControl : 1;
-		unsigned : 3;
+		unsigned : 5;
 	} statusBits;
 	uint8_t status;
 } CommStatus;

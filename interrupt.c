@@ -33,40 +33,33 @@ void __interrupt(low_priority) isrLowPriority(void)
 {
 	if(PIR3bits.SSP2IF)
 	{
-		if(_sramStatus.statusBits.isBusyRead)
+		RAM_CS = ~_sramStatus.statusBits.keepEnabled;
+
+		if(_sramStatus.statusBits.isCommand)
 		{
-			RAM_CS = 1;
+			_sramStatus.statusBits.isCommand = false;
+		}
+		else if(_sramStatus.statusBits.isReading)
+		{
 			_sramStatus.readAddress += _sramStatus.dataLength;
 			if(_sramStatus.readAddress >= SRAM_CAPACITY)
 				_sramStatus.readAddress = 0;
 			_sramStatus.statusBits.hasUnreadData = true;
-			_sramStatus.statusBits.isBusyRead = false;
+			_sramStatus.statusBits.isReading = false;
 		}
-		else if(_sramStatus.statusBits.isBusyWrite)
+		else if(_sramStatus.statusBits.isWriting)
 		{
-			RAM_CS = 1;
 			_sramStatus.writeAddress += _sramStatus.dataLength;
 			if(_sramStatus.writeAddress >= SRAM_CAPACITY)
 				_sramStatus.writeAddress = 0;
-			_sramStatus.statusBits.isBusyWrite = false;
+			_sramStatus.dataLength = 0;
+			_sramStatus.statusBits.isWriting = false;
 		}
-		else if(_sramStatus.statusBits.isBusyFill)
+		else if(_sramStatus.statusBits.isFilling && _sramStatus.dataLength == 0)
 		{
-			if(_sramStatus.statusBits.isContinuousFill && _sramStatus.dataLength == 0)
-			{
-				RAM_CS = 1;
-				DMACON1bits.DUPLEX1 = 1;
-				DMACON1bits.DUPLEX0 = 0;
-				DMACON1bits.TXINC = 1;
-				_sramStatus.statusBits.isContinuousFill = false;
-			}
-			_sramStatus.statusBits.isBusyFill = false;
+			_sramStatus.statusBits.isFilling = false;
 		}
-		else if(_sramStatus.statusBits.isBusyMode)
-		{
-			RAM_CS = 1;
-			_sramStatus.statusBits.isBusyWrite = false;
-		}
+		_sramStatus.statusBits.isBusy = false;
 		PIR3bits.SSP2IF = false;
 	}
 	if(PIR1bits.RC1IF)

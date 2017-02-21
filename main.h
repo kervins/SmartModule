@@ -35,6 +35,9 @@
 #define WIFI_RX			PORTCbits.TX1
 #define WIFI_TX			PORTCbits.RX1
 
+// DEFINITIONS (OTHER)---------------------------------------------------------
+#define FIRMWARE_VERSION 1.00
+
 // GLOBAL VARIABLES------------------------------------------------------------
 extern volatile uint32_t _tick;
 
@@ -48,6 +51,7 @@ void InitializeSpi(void);
 void InitializeUSART(void);
 void InitializeRTCC(void);
 void InitializeInterrupts(void);
+void InitializeShell(void);
 // Button Actions
 void ButtonPress(void);
 void ButtonHold(void);

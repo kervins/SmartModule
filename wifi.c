@@ -1,5 +1,5 @@
 /* Project:	SmartModule
- * File:	wifi.h
+ * File:	wifi.c
  * Author:	Jonathan Ruisi
  * Created:	February 14, 2017, 7:55 AM
  */

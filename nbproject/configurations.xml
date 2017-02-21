@@ -12,6 +12,7 @@
       <itemPath>sram.h</itemPath>
       <itemPath>serial_comm.h</itemPath>
       <itemPath>wifi.h</itemPath>
+      <itemPath>shell.h</itemPath>
     </logicalFolder>
     <logicalFolder name="LinkerScript"
                    displayName="Linker Files"
@@ -27,6 +28,7 @@
       <itemPath>sram.c</itemPath>
       <itemPath>serial_comm.c</itemPath>
       <itemPath>wifi.c</itemPath>
+      <itemPath>shell.c</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"

@@ -12,20 +12,24 @@
 #include "utility.h"
 
 // GLOBAL VARIABLES------------------------------------------------------------
-volatile SramFullDuplexBuffer _sramBuffer;
 volatile SramStatus _sramStatus;
+volatile SramPacket _sramPacket;
 
 // N01S830XX Functions---------------------------------------------------------
 
 void SramSetMode(SramMode mode)
 {
-	_sramStatus.statusBits.isBusyWrite = true;
-	_sramBuffer.transmit.initialization.command = SRAM_COMMAND_WRMR;
-	_sramBuffer.transmit.initialization.mode = mode;
-	TXADDRH = GET_BYTE((unsigned int) &_sramBuffer.transmit, 1);
-	TXADDRL = GET_BYTE((unsigned int) &_sramBuffer.transmit, 0);
-	RXADDRH = GET_BYTE((unsigned int) &_sramBuffer.receive, 1);
-	RXADDRL = GET_BYTE((unsigned int) &_sramBuffer.receive, 0);
+	_sramStatus.statusBits.isBusy = true;
+	_sramStatus.statusBits.isCommand = true;
+	_sramStatus.statusBits.keepEnabled = false;
+	_sramStatus.dataLength = 0;
+	_sramPacket.initialization.command = SRAM_COMMAND_WRMR;
+	_sramPacket.initialization.mode = mode;
+	DMACON1bits.TXINC = true;
+	DMACON1bits.RXINC = false;
+	DMACON1bits.DUPLEX0 = 1;
+	TXADDRH = GET_BYTE((unsigned int) &_sramPacket.initialization, 1);
+	TXADDRL = GET_BYTE((unsigned int) &_sramPacket.initialization, 0);
 	DMABCH = 0x00;
 	DMABCL = 0x01;
 	RAM_CS = 0;
@@ -36,51 +40,86 @@ void SramRead(uint24_t address, uint24_t length)
 {
 	if(address >= SRAM_CAPACITY)
 		address %= SRAM_CAPACITY;
+	if(length > SRAM_BUFFER_SIZE)
+		length = SRAM_BUFFER_SIZE;
 	if(address + length >= SRAM_CAPACITY)
 		length = SRAM_CAPACITY - address;
+	_sramStatus.statusBits.isReading = true;
 	_sramStatus.readAddress = address;
-	SramReadNext(length);
+	_sramStatus.dataLength = length;
+	_sramPacket.initialization.command = SRAM_COMMAND_READ;
+	_sramPacket.initialization.address = address;
+	SramCommandAddress();
 }
 
 void SramReadNext(uint24_t length)
 {
-	_sramStatus.statusBits.isBusyRead = true;
+	if(length > SRAM_BUFFER_SIZE)
+		length = SRAM_BUFFER_SIZE;
+
+	_sramStatus.statusBits.isReading = true;
 	_sramStatus.dataLength = length;
-	_sramBuffer.transmit.initialization.command = SRAM_COMMAND_READ;
-	_sramBuffer.transmit.initialization.address = _sramStatus.readAddress;
-	TXADDRH = GET_BYTE((unsigned int) &_sramBuffer.transmit, 1);
-	TXADDRL = GET_BYTE((unsigned int) &_sramBuffer.transmit, 0);
-	RXADDRH = GET_BYTE((unsigned int) &_sramBuffer.receive, 1);
-	RXADDRL = GET_BYTE((unsigned int) &_sramBuffer.receive, 0);
-	DMABCH = GET_BYTE(_sramStatus.dataLength + 4, 1);
-	DMABCL = GET_BYTE(_sramStatus.dataLength + 4, 0);
+	_sramPacket.initialization.command = SRAM_COMMAND_READ;
+	_sramPacket.initialization.address = _sramStatus.readAddress;
+	SramCommandAddress();
+}
+
+void SramReadContinue(void)
+{
+	_sramStatus.statusBits.isBusy = true;
+	_sramStatus.statusBits.keepEnabled = false;
+	DMACON1bits.TXINC = false;
+	DMACON1bits.RXINC = true;
+	DMACON1bits.DUPLEX0 = 0;
+	RXADDRH = GET_BYTE((unsigned int) _sramPacket.data, 1);
+	RXADDRL = GET_BYTE((unsigned int) _sramPacket.data, 0);
+	DMABCH = GET_BYTE(_sramStatus.dataLength - 1, 1);
+	DMABCL = GET_BYTE(_sramStatus.dataLength - 1, 0);
 	RAM_CS = 0;
 	DMACON1bits.DMAEN = true;
 }
 
-void SramWrite(uint24_t address, const char* data, uint8_t length)
+void SramWrite(uint24_t address, const void* data, uint24_t length)
 {
 	if(address >= SRAM_CAPACITY)
 		address %= SRAM_CAPACITY;
+	if(length > SRAM_BUFFER_SIZE)
+		length = SRAM_BUFFER_SIZE;
 	if(address + length >= SRAM_CAPACITY)
 		length = SRAM_CAPACITY - address;
+	_sramStatus.statusBits.isWriting = true;
 	_sramStatus.writeAddress = address;
-	SramWriteNext(data, length);
+	_sramStatus.dataLength = length;
+	_sramPacket.initialization.command = SRAM_COMMAND_WRITE;
+	_sramPacket.initialization.address = address;
+	memcpy(_sramPacket.data, data, length);
+	SramCommandAddress();
 }
 
-void SramWriteNext(const char* data, uint8_t length)
+void SramWriteNext(const void* data, uint24_t length)
 {
-	_sramStatus.statusBits.isBusyWrite = true;
+	if(length > SRAM_BUFFER_SIZE)
+		length = SRAM_BUFFER_SIZE;
+
+	_sramStatus.statusBits.isWriting = true;
 	_sramStatus.dataLength = length;
-	_sramBuffer.transmit.initialization.command = SRAM_COMMAND_WRITE;
-	_sramBuffer.transmit.initialization.address = _sramStatus.writeAddress;
-	strcpy((char*) _sramBuffer.transmit.txData, data);
-	TXADDRH = GET_BYTE((unsigned int) &_sramBuffer.transmit, 1);
-	TXADDRL = GET_BYTE((unsigned int) &_sramBuffer.transmit, 0);
-	RXADDRH = GET_BYTE((unsigned int) &_sramBuffer.receive, 1);
-	RXADDRL = GET_BYTE((unsigned int) &_sramBuffer.receive, 0);
-	DMABCH = GET_BYTE(_sramStatus.dataLength + 4, 1);
-	DMABCL = GET_BYTE(_sramStatus.dataLength + 4, 0);
+	_sramPacket.initialization.command = SRAM_COMMAND_WRITE;
+	_sramPacket.initialization.address = _sramStatus.writeAddress;
+	memcpy(_sramPacket.data, data, length);
+	SramCommandAddress();
+}
+
+void SramWriteContinue(void)
+{
+	_sramStatus.statusBits.isBusy = true;
+	_sramStatus.statusBits.keepEnabled = false;
+	DMACON1bits.TXINC = true;
+	DMACON1bits.RXINC = false;
+	DMACON1bits.DUPLEX0 = 1;
+	TXADDRH = GET_BYTE((unsigned int) _sramPacket.data, 1);
+	TXADDRL = GET_BYTE((unsigned int) _sramPacket.data, 0);
+	DMABCH = GET_BYTE(_sramStatus.dataLength - 1, 1);
+	DMABCL = GET_BYTE(_sramStatus.dataLength - 1, 0);
 	RAM_CS = 0;
 	DMACON1bits.DMAEN = true;
 }
@@ -91,32 +130,51 @@ void SramFill(uint24_t address, uint24_t length, uint8_t value)
 		address %= SRAM_CAPACITY;
 	if(address + length >= SRAM_CAPACITY)
 		length = SRAM_CAPACITY - address;
-	_sramStatus.statusBits.isBusyFill = true;
-	_sramStatus.statusBits.isContinuousFill = true;
-	_sramBuffer.transmit.initialization.command = SRAM_COMMAND_WRITE;
-	_sramBuffer.transmit.initialization.address = address;
-	_sramBuffer.transmit.txData[0] = value;
+	_sramStatus.statusBits.isFilling = true;
 	_sramStatus.dataLength = length;
-	TXADDRH = GET_BYTE((unsigned int) &_sramBuffer.transmit, 1);
-	TXADDRL = GET_BYTE((unsigned int) &_sramBuffer.transmit, 0);
-	RXADDRH = GET_BYTE((unsigned int) &_sramBuffer.receive, 1);
-	RXADDRL = GET_BYTE((unsigned int) &_sramBuffer.receive, 0);
-	DMABCH = 0x00;
-	DMABCL = 0x03;
-	RAM_CS = 0;
+	_sramPacket.initialization.command = SRAM_COMMAND_WRITE;
+	_sramPacket.initialization.address = address;
+	_sramPacket.data[0] = value;
+	SramCommandAddress();
+}
+
+void SramFillContinue(void)
+{
+	_sramStatus.statusBits.isBusy = true;
+	DMACON1bits.TXINC = false;
+	DMACON1bits.RXINC = false;
+	DMACON1bits.DUPLEX0 = 1;
+	TXADDRH = GET_BYTE((unsigned int) _sramPacket.data, 1);
+	TXADDRL = GET_BYTE((unsigned int) _sramPacket.data, 0);
+	if(_sramStatus.dataLength > DMA_MAX_TRANSFER)
+	{
+		_sramStatus.statusBits.keepEnabled = true;
+		DMABCH = GET_BYTE(DMA_MAX_TRANSFER - 1, 1);
+		DMABCL = GET_BYTE(DMA_MAX_TRANSFER - 1, 0);
+		_sramStatus.dataLength -= DMA_MAX_TRANSFER;
+	}
+	else
+	{
+		_sramStatus.statusBits.keepEnabled = false;
+		DMABCH = GET_BYTE(_sramStatus.dataLength - 1, 1);
+		DMABCL = GET_BYTE(_sramStatus.dataLength - 1, 0);
+		_sramStatus.dataLength = 0;
+	}
 	DMACON1bits.DMAEN = true;
 }
 
-void SramFillNext(void)
+void SramCommandAddress(void)
 {
-	_sramStatus.statusBits.isBusyFill = true;
-	TXADDRH = GET_BYTE((unsigned int) _sramBuffer.transmit.txData, 1);
-	TXADDRL = GET_BYTE((unsigned int) _sramBuffer.transmit.txData, 0);
-	DMACON1bits.DUPLEX1 = 0;
+	_sramStatus.statusBits.isBusy = true;
+	_sramStatus.statusBits.isCommand = true;
+	_sramStatus.statusBits.keepEnabled = true;
+	DMACON1bits.TXINC = true;
+	DMACON1bits.RXINC = false;
 	DMACON1bits.DUPLEX0 = 1;
-	DMACON1bits.TXINC = 0;
-	_sramStatus.dataLength -= _sramStatus.dataLength >= DMA_MAX_TRANSFER ? DMA_MAX_TRANSFER : _sramStatus.dataLength;
-	DMABCH = GET_BYTE(_sramStatus.dataLength - 1, 1);
-	DMABCL = GET_BYTE(_sramStatus.dataLength - 1, 0);
+	TXADDRH = GET_BYTE((unsigned int) &_sramPacket.initialization, 1);
+	TXADDRL = GET_BYTE((unsigned int) &_sramPacket.initialization, 0);
+	DMABCH = 0x00;
+	DMABCL = 0x03;
+	RAM_CS = 0;
 	DMACON1bits.DMAEN = true;
 }

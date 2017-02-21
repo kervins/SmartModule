@@ -21,8 +21,8 @@
 #pragma config WDTPS		= 32768			// Watchdog Postscaler
 
 // CONFIG3L
-#pragma config DSWDTOSC		= T1OSCREF		// DSWDT Clock Select
-#pragma config RTCOSC		= T1OSCREF		// RTCC Clock Select
+#pragma config DSWDTOSC		= INTOSCREF		// DSWDT Clock Select
+#pragma config RTCOSC		= INTOSCREF		// RTCC Clock Select
 #pragma config DSBOREN		= ON			// Deep Sleep BOR
 #pragma config DSWDTEN		= ON			// Deep Sleep Watchdog Timer
 #pragma config DSWDTPS		= G2			// Deep Sleep Watchdog Postscaler
