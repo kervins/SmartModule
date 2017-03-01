@@ -9,10 +9,12 @@
 
 #include <stdint.h>
 
-// Generic function pointer, typedef'd for readability
-typedef void (*Action)(void) ;
+// FUNCTION POINTERS-----------------------------------------------------------
+typedef void (*Action)(void) ;	// Generic function pointer, typedef'd for readability
 
-typedef enum _MonthsOfYear
+// ENUMERATED TYPES------------------------------------------------------------
+
+typedef enum
 {
 	JANUARY		= 1,
 	FEBRUARY	= 2,
@@ -28,7 +30,7 @@ typedef enum _MonthsOfYear
 	DECEMBER	= 12
 } MonthsOfYear;
 
-typedef enum _DaysOfWeek
+typedef enum
 {
 	MONDAY		= 1,
 	TUESDAY		= 2,
@@ -39,9 +41,16 @@ typedef enum _DaysOfWeek
 	SUNDAY		= 7
 } DaysOfWeek;
 
+typedef enum
+{
+	Write	= 0,
+	Read	= 1
+} IoDirection;
+
+// STRUCTURES------------------------------------------------------------------
 // Condenses a complete date and time into an efficient 43b structure
 
-typedef struct _DateTime
+typedef struct
 {
 	unsigned second		: 6;
 	unsigned minute		: 6;
@@ -52,15 +61,9 @@ typedef struct _DateTime
 	unsigned year		: 14;
 } DateTime;
 
-typedef enum _IoDirection
-{
-	Write	= 0,
-	Read	= 1
-} IoDirection;
-
 // Structure that allows any 8b value to be interpreted as 2-digit Binary Coded Decimal
 
-typedef union _BcdTwoDigit
+typedef union
 {
 
 	struct
@@ -70,5 +73,13 @@ typedef union _BcdTwoDigit
 	} ;
 	uint8_t ByteValue;
 } BcdTwoDigit;
+
+// Structure that provides both the address and length of a file
+
+typedef struct
+{
+	uint24_t length;
+	uint24_t address;
+} FileDescriptor;
 
 #endif

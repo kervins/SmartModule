@@ -27,7 +27,6 @@ volatile uint32_t _tick = 0;	// Global timekeeping variable (not related to RTCC
 void main(void)
 {
 	// TODO:  Make SRAM file system
-	// TODO:  Make shell
 
 	// Initialize device
 	InitializeOscillator();
@@ -69,7 +68,7 @@ void main(void)
 	SramFill(0x000000, SRAM_CAPACITY, 0xFF);
 
 	// Initialize shell
-	InitializeShell();
+	ShellInitialize(2, 2, true);
 
 	// Start tick timer (Timer 4)
 	T4CONbits.TMR4ON = true;
@@ -83,6 +82,9 @@ void main(void)
 		// USART-------------------------------------------
 		if(_commStatus1.statusBits.isRxFlowControl)
 			CheckFlowControlRx1();
+		if(_rxBuffer1.length > 0 && _shell.isEchoWifi)
+			putch(getch1());
+
 		if(_commStatus2.statusBits.isRxFlowControl)
 			CheckFlowControlRx2();
 
@@ -129,15 +131,32 @@ void main(void)
 			RCSTA1bits.SPEN	= true;
 			_wifiStatus = WIFI_STATUS_BOOT2;
 			_wifiTimestamp = _tick;
+
+			// Disregard WiFi startup data which is most likely in the RX buffer at this point
+			// Zero the buffer length and echo any further WiFi output
+			_rxBuffer1.length = 0;
+			_shell.isEchoWifi = true;
 		}
 
 		// SHELL-------------------------------------------
-		if(_shell.hasLine)
+		if(_shell.isBusy)
 		{
-			ShellExecuteCommand();
+			while(_shell.isBusy)
+			{
+				ShellPrintNewLine();
+				_shell.currentAction();
+			}
+			ShellPrintNewLine();
+			ShellPrintNewLine();
+			ShellPrintCommandLine();
 		}
-		else if(_shell.getLine)
-			ShellUpdateInput();
+		else
+		{
+			if(_shell.lineBuffer.hasLine)
+				ShellParseInput();
+			else
+				ShellGetInput();
+		}
 	}
 	return;
 }
@@ -297,38 +316,4 @@ void InitializeInterrupts(void)
 	RCONbits.IPEN	= 1;	// Set prioritized interrupt mode
 	INTCONbits.GIEH	= 1;	// Enable high-priority interrupts
 	INTCONbits.GIEL	= 1;	// Enable low-priority interrupts
-}
-
-void InitializeShell(void)
-{
-	_shell.rxTarget = 2;
-	_shell.txTarget = 2;
-	_shell.getLine = true;
-	_shell.hasLine = false;
-	_shell.isEcho = true;
-	_shell.lineLength = 0;
-	printf("SmartModule\n\r");
-	ShellPrintVersion();
-	putch('\n');
-	putch('\r');
-	putch('\n');
-	putch('\r');
-	ShellPrintCommandLine();
-}
-
-// BUTTON ACTIONS--------------------------------------------------------------
-
-void ButtonPress(void)
-{
-	;
-}
-
-void ButtonHold(void)
-{
-	;
-}
-
-void ButtonRelease(void)
-{
-	;
 }

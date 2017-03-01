@@ -4,13 +4,16 @@
  * Created:	February 20, 2017, 3:39 PM
  */
 
+#include <xc.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <string.h>
 #include <stdio.h>
+#include <string.h>
 #include "shell.h"
 #include "main.h"
+#include "sram.h"
 #include "serial_comm.h"
+#include "wifi.h"
 #include "common_types.h"
 
 // GLOBAL VARIABLES------------------------------------------------------------
@@ -42,9 +45,31 @@ void putch(char data)
 	}
 }
 
+// INITIALIZATION FUNCTIONS----------------------------------------------------
+
+void ShellInitialize(uint8_t txTarget, uint8_t rxTarget, bool isEcho)
+{
+	_shell.txTarget = txTarget;
+	_shell.rxTarget = rxTarget;
+	_shell.isEcho = isEcho;
+	_shell.isEchoWifi = false;
+	_shell.isBusy = false;
+	_shell.currentAction = 0;
+	_shell.paramCount = 0;
+	_shell.lineBuffer.hasLine = false;
+	_shell.lineBuffer.lineLength = 0;
+	printf("SmartModule\n\r");
+	ShellPrintVersion();
+	putch('\n');
+	putch('\r');
+	putch('\n');
+	putch('\r');
+	ShellPrintCommandLine();
+}
+
 // CONSOLE FUNCTIONS-----------------------------------------------------------
 
-void ShellUpdateInput(void)
+void ShellGetInput(void)
 {
 	volatile unsigned int* length;
 	switch(_shell.rxTarget)
@@ -60,41 +85,74 @@ void ShellUpdateInput(void)
 		char ch = getch();
 		if(ch == ASCII_CR)
 		{
-			_shell.lineData[_shell.lineLength] = 0;
-			_shell.hasLine = true;
-			_shell.getLine = false;
+			_shell.lineBuffer.hasLine = true;
 			break;
 		}
-		_shell.lineData[_shell.lineLength] = ch;
-		_shell.lineLength++;
+		_shell.lineBuffer.lineData[_shell.lineBuffer.lineLength] = ch;
+		_shell.lineBuffer.lineLength++;
 		if(_shell.isEcho)
 			putch(ch);
 	}
 }
 
-void ShellExecuteCommand(void)
+void ShellParseInput(void)
 {
-	Action action;
-	if(strnicmp(_shell.lineData, "version", _shell.lineLength) == 0)
+	_shell.isBusy = true;
+	char command[16];
+	char* pToken = strtok(_shell.lineBuffer.lineData, " ");
+	strcpy(command, pToken);
+
+	_shell.paramCount = 0;
+	_shell.paramStartIndex = 0;
+	while(_shell.paramCount < PARAM_COUNT_MAX)
 	{
-		action = ShellPrintVersion;
-	}
-	else
-	{
-		action = 0;
+		pToken = strtok(NULL, " ");
+		if(pToken == NULL)
+			break;
+
+		_shell.paramStartIndex = pToken - _shell.lineBuffer.lineData;
+		int tokenLength = strlen(pToken);
+		if(pToken[0] == '-')
+		{
+			_shell.paramList[_shell.paramCount].flag = pToken[1];
+			pToken = strtok(NULL, " ");
+			if(pToken == NULL)
+				break;
+			tokenLength = strlen(pToken);
+		}
+		else
+		{
+			_shell.paramList[_shell.paramCount].flag = NULL;
+		}
+
+		_shell.paramList[_shell.paramCount].index = pToken - _shell.lineBuffer.lineData;
+		_shell.paramList[_shell.paramCount].length = tokenLength;
+		_shell.paramCount++;
 	}
 
-	_shell.lineLength = 0;
-	_shell.hasLine = false;
-	_shell.getLine = true;
+	if(strnicmp(command, "version", 7) == 0)
+	{
+		_shell.currentAction = ShellPrintVersion;
+	}
+	else if(strnicmp(command, "wificmd", 4) == 0)
+	{
+		_shell.currentAction = ShellWifiCommand;
+	}
+	else
+		_shell.currentAction = ShellPrintInvalid;
+}
+
+void ShellEndExecution(void)
+{
+	_shell.isBusy = false;
+	_shell.lineBuffer.lineLength = 0;
+	_shell.lineBuffer.hasLine = false;
+}
+
+void ShellPrintNewLine(void)
+{
 	putch(ASCII_CR);
 	putch(ASCII_LF);
-	if(action)
-		action();
-	putch(ASCII_CR);
-	putch(ASCII_LF);
-	putch('>');
-	putch(' ');
 }
 
 void ShellPrintCommandLine(void)
@@ -103,7 +161,27 @@ void ShellPrintCommandLine(void)
 	putch(' ');
 }
 
+void ShellPrintInvalid(void)
+{
+	printf("ERROR: Invalid input");
+	ShellEndExecution();
+}
+
 void ShellPrintVersion(void)
 {
 	printf("Firmware Version %.2f", (float) FIRMWARE_VERSION);
+	ShellEndExecution();
+}
+
+void ShellWifiCommand(void)
+{
+	if(_shell.paramCount != 1 && _shell.paramList[0].flag != NULL)
+		ShellPrintInvalid();
+	else
+	{
+		_shell.txTarget = 1;
+		_shell.rxTarget = 1;
+		printf("%s", _shell.lineBuffer.lineData + _shell.paramStartIndex);
+		ShellEndExecution();
+	}
 }

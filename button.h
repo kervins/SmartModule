@@ -43,5 +43,8 @@ extern volatile ButtonInfo _button;
 ButtonInfo ButtonInfoCreate(Action pressAction, Action holdAction, Action releaseAction, bool activeLogicLevel);
 void UpdateButtonState(volatile ButtonInfo* buttonInfo, bool currentLogicLevel);
 void CheckButton(volatile ButtonInfo *buttonInfo);
+void ButtonPress(void);
+void ButtonHold(void);
+void ButtonRelease(void);
 
 #endif

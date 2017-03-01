@@ -11,7 +11,7 @@
 // GLOBAL VARIABLES------------------------------------------------------------
 volatile ButtonInfo _button;
 
-// FUNCTIONS-------------------------------------------------------------------
+// STATUS FUNCTIONS------------------------------------------------------------
 
 ButtonInfo ButtonInfoCreate(Action pressAction, Action holdAction, Action releaseAction, bool activeLogicLevel)
 {
@@ -82,4 +82,21 @@ void CheckButton(volatile ButtonInfo *buttonInfo)
 
 	if(buttonInfo->isDebouncing && (_tick - buttonInfo->timestamp >= DEBOUNCE_DELAY))
 		buttonInfo->isDebouncing = false;
+}
+
+// BUTTON ACTIONS--------------------------------------------------------------
+
+void ButtonPress(void)
+{
+	;
+}
+
+void ButtonHold(void)
+{
+	;
+}
+
+void ButtonRelease(void)
+{
+	;
 }

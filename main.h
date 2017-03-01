@@ -51,7 +51,6 @@ void InitializeSpi(void);
 void InitializeUSART(void);
 void InitializeRTCC(void);
 void InitializeInterrupts(void);
-void InitializeShell(void);
 // Button Actions
 void ButtonPress(void);
 void ButtonHold(void);
