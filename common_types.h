@@ -10,7 +10,11 @@
 #include <stdint.h>
 
 // FUNCTION POINTERS-----------------------------------------------------------
-typedef void (*Action)(void) ;	// Generic function pointer, typedef'd for readability
+typedef void (*Action)(void) ;				// Generic function pointer, typedef'd for readability
+typedef uint8_t (*U8Func)(void) ;			// Function pointer that returns an unsigned char
+typedef void (*FuncV)(void*) ;				// Function pointer with one parameter (void*)
+typedef void (*FuncU8)(uint8_t);			// Function pointer with one parameter (unsigned char)
+typedef void (*FuncU8U8)(uint8_t, uint8_t);	// Function pointer with two parameters (unsigned char)
 
 // ENUMERATED TYPES------------------------------------------------------------
 

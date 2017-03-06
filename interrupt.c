@@ -64,31 +64,23 @@ void __interrupt(low_priority) isrLowPriority(void)
 	}
 	if(PIR1bits.RC1IF)
 	{
-		RingBufferEnqueue(&_rxBuffer1, RCREG1);
+		char data = *_comm1.registers->pRxReg;
+		if(data == ASCII_XOFF && _comm1.statusBits.isTxFlowControl)
+			_comm1.statusBits.isTxPaused = true;
+		else if(data == ASCII_XON && _comm1.statusBits.isTxFlowControl)
+			_comm1.statusBits.isTxPaused = false;
+		else
+			RingBufferEnqueue(&_comm1.rxBuffer, data);
 	}
 	if(PIR3bits.RC2IF)
 	{
-		RingBufferEnqueue(&_rxBuffer2, RCREG2);
-	}
-	if(PIR1bits.TX1IF)
-	{
-		if(_txBuffer1.length == 0)
-			PIE1bits.TX1IE = false;
+		char data = *_comm2.registers->pRxReg;
+		if(data == ASCII_XOFF && _comm2.statusBits.isTxFlowControl)
+			_comm2.statusBits.isTxPaused = true;
+		else if(data == ASCII_XON && _comm2.statusBits.isTxFlowControl)
+			_comm2.statusBits.isTxPaused = false;
 		else
-		{
-			char data = RingBufferDequeue(&_txBuffer1);
-			TXREG1 = data;
-		}
-	}
-	if(PIR3bits.TX2IF)
-	{
-		if(_txBuffer2.length == 0)
-			PIE3bits.TX2IE = false;
-		else
-		{
-			char data = RingBufferDequeue(&_txBuffer2);
-			TXREG2 = data;
-		}
+			RingBufferEnqueue(&_comm2.rxBuffer, data);
 	}
 	return;
 }

@@ -10,6 +10,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "main.h"
 #include "button.h"
@@ -21,13 +22,14 @@
 
 // GLOBAL VARIABLES------------------------------------------------------------
 volatile uint32_t _tick = 0;	// Global timekeeping variable (not related to RTCC)
+CommPort _comm1, _comm2;
+const CommDataRegisters _comm1Regs = {&TXREG1, &RCREG1, (TXSTAbits_t*) & TXSTA1, (RCSTAbits_t*) & RCSTA1};
+const CommDataRegisters _comm2Regs = {&TXREG2, &RCREG2, (TXSTAbits_t*) & TXSTA2, (RCSTAbits_t*) & RCSTA2};
 
 // PROGRAM ENTRY---------------------------------------------------------------
 
 void main(void)
 {
-	// TODO:  Make SRAM file system
-
 	// Initialize device
 	InitializeOscillator();
 	InitializeWDT();
@@ -39,36 +41,34 @@ void main(void)
 
 	// Initialize data
 	uint32_t prevTick = 0;
+	char txData1[TX_BUFFER_SIZE];
+	char txData2[TX_BUFFER_SIZE];
+	char rxData1[RX_BUFFER_SIZE];
+	char rxData2[RX_BUFFER_SIZE];
+	char lineData1[LINE_BUFFER_SIZE];
+	char lineData2[LINE_BUFFER_SIZE];
+	_comm1 = CommPortCreate(TX_BUFFER_SIZE, RX_BUFFER_SIZE, LINE_BUFFER_SIZE,
+							txData1, rxData1, lineData1,
+							CR_LF, CR_LF,
+							&_comm1Regs);
+	_comm2 = CommPortCreate(TX_BUFFER_SIZE, RX_BUFFER_SIZE, LINE_BUFFER_SIZE,
+							txData2, rxData2, lineData2,
+							CR_LF, CR_ONLY,
+							&_comm2Regs);
+	_comm1.RxAction = CommGetString;
+	_comm2.RxAction = CommGetString;
+	_sramStatus = SramStatusCreate();
 	_button = ButtonInfoCreate(ButtonPress, ButtonHold, ButtonRelease, 0);
-	char txBufferData1[TX_BUFFER_SIZE] = {0};
-	char txBufferData2[TX_BUFFER_SIZE] = {0};
-	char rxBufferData1[RX_BUFFER_SIZE] = {0};
-	char rxBufferData2[RX_BUFFER_SIZE] = {0};
-	_txBuffer1 = RingBufferCreate(TX_BUFFER_SIZE, txBufferData1);
-	_txBuffer2 = RingBufferCreate(TX_BUFFER_SIZE, txBufferData2);
-	_rxBuffer1 = RingBufferCreate(RX_BUFFER_SIZE, rxBufferData1);
-	_rxBuffer2 = RingBufferCreate(RX_BUFFER_SIZE, rxBufferData2);
-	_commStatus1.status = 0;
-	_commStatus2.status = 0;
-	_commStatus1.statusBits.isRxFlowControl = false;
-	_commStatus2.statusBits.isRxFlowControl = true;
-	_sramStatus.dataLength = 0;
-	_sramStatus.readAddress = 0;
-	_sramStatus.writeAddress = 0;
-	_sramStatus.status = 0;
 
-	// Initialize SRAM mode: HOLD function disabled, burst write
+	// Set SRAM mode: HOLD function disabled, burst write
 	SramMode mode;
 	mode.value = 0;
 	mode.holdDisabled = true;
 	mode.mode = SRAM_MODE_BURST;
 	SramSetMode(mode);
 
-	// Blank entire SRAM array (fill with 0x00)
+	// Blank entire SRAM array (fill with 0xFF)
 	SramFill(0x000000, SRAM_CAPACITY, 0xFF);
-
-	// Initialize shell
-	ShellInitialize(2, 2, true);
 
 	// Start tick timer (Timer 4)
 	T4CONbits.TMR4ON = true;
@@ -80,13 +80,24 @@ void main(void)
 		CheckButton(&_button);
 
 		// USART-------------------------------------------
-		if(_commStatus1.statusBits.isRxFlowControl)
-			CheckFlowControlRx1();
-		if(_rxBuffer1.length > 0 && _shell.isEchoWifi)
-			putch(getch1());
+		CommPortUpdate(&_comm1);
+		CommPortUpdate(&_comm2);
 
-		if(_commStatus2.statusBits.isRxFlowControl)
-			CheckFlowControlRx2();
+		if(_comm1.statusBits.hasLine)
+		{
+			CommPutString(&_comm2, _comm1.lineBuffer.data);
+			_comm1.lineBuffer.length = 0;
+			_comm1.statusBits.hasLine = false;
+			_comm1.RxAction = CommGetString;
+		}
+
+		if(_comm2.statusBits.hasLine)
+		{
+			CommPutString(&_comm2, _comm2.lineBuffer.data);
+			_comm2.lineBuffer.length = 0;
+			_comm2.statusBits.hasLine = false;
+			_comm2.RxAction = CommGetString;
+		}
 
 		// SRAM--------------------------------------------
 		if(!_sramStatus.statusBits.isBusy)
@@ -97,19 +108,6 @@ void main(void)
 				SramWriteContinue();
 			if(_sramStatus.statusBits.isFilling)
 				SramFillContinue();
-		}
-
-		if(!_sramStatus.statusBits.isBusy && _sramStatus.statusBits.hasUnreadData)
-		{
-			char number[8];
-			ltoa(number, _sramStatus.readAddress - _sramStatus.dataLength, 16);
-			printf("READ ADDRESS = 0x%s\n\r", number);
-			int i;
-			for(i = 0; i < _sramStatus.dataLength; i++)
-			{
-				putch2(_sramPacket.data[i]);
-			}
-			_sramStatus.statusBits.hasUnreadData = false;
 		}
 
 		// WIFI--------------------------------------------
@@ -131,31 +129,13 @@ void main(void)
 			RCSTA1bits.SPEN	= true;
 			_wifiStatus = WIFI_STATUS_BOOT2;
 			_wifiTimestamp = _tick;
-
-			// Disregard WiFi startup data which is most likely in the RX buffer at this point
-			// Zero the buffer length and echo any further WiFi output
-			_rxBuffer1.length = 0;
-			_shell.isEchoWifi = true;
 		}
 
 		// SHELL-------------------------------------------
-		if(_shell.isBusy)
+		if(_tick - prevTick > 100)
 		{
-			while(_shell.isBusy)
-			{
-				ShellPrintNewLine();
-				_shell.currentAction();
-			}
-			ShellPrintNewLine();
-			ShellPrintNewLine();
-			ShellPrintCommandLine();
-		}
-		else
-		{
-			if(_shell.lineBuffer.hasLine)
-				ShellParseInput();
-			else
-				ShellGetInput();
+			;
+			prevTick = _tick;
 		}
 	}
 	return;
@@ -299,13 +279,13 @@ void InitializeInterrupts(void)
 	// Configure USART1 interrupts
 	IPR1bits.TX1IP	= 0;	// Low priority TX interrupt
 	IPR1bits.RC1IP	= 0;	// Low priority RX interrupt
-	//PIE1bits.TX1IE= 1;	// Enable TX interrupt **This is done in putch(), not here**
+	PIE1bits.TX1IE	= 0;	// Disable TX interrupt
 	PIE1bits.RC1IE	= 1;	// Enable RX interrupt
 
 	// Configure USART2 interrupts
 	IPR3bits.TX2IP	= 0;	// Low priority TX interrupt
 	IPR3bits.RC2IP	= 0;	// Low priority RX interrupt
-	//PIE3bits.TX2IE= 1;	// Enable TX interrupt **This is done in putch(), not here**
+	PIE3bits.TX2IE	= 0;	// Disable TX interrupt
 	PIE3bits.RC2IE	= 1;	// Enable RX interrupt
 
 	// Configure SPI2 interrupts
@@ -317,3 +297,22 @@ void InitializeInterrupts(void)
 	INTCONbits.GIEH	= 1;	// Enable high-priority interrupts
 	INTCONbits.GIEL	= 1;	// Enable low-priority interrupts
 }
+
+// BUTTON ACTIONS--------------------------------------------------------------
+
+void ButtonPress(void)
+{
+	;
+}
+
+void ButtonHold(void)
+{
+	;
+}
+
+void ButtonRelease(void)
+{
+	;
+}
+
+// SERIAL COMM ACTIONS---------------------------------------------------------

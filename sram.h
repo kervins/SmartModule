@@ -95,6 +95,7 @@ extern volatile SramStatus _sramStatus;
 extern volatile SramPacket _sramPacket;
 
 // FUNCTION PROTOTYPES---------------------------------------------------------
+SramStatus SramStatusCreate(void);
 void SramSetMode(SramMode mode);
 void SramRead(uint24_t address, uint24_t length);
 void SramReadNext(uint24_t length);

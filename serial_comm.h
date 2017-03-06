@@ -7,6 +7,8 @@
 #ifndef SERIAL_COMM_H
 #define SERIAL_COMM_H
 
+#include "common_types.h"
+
 // MACROS (Calculates SPBRG values for USART baud rate generator)--------------
 // Each definition contains a value that is to be loaded into the BRG registers (SPBRGHx:SPBRGx)
 #define CALCULATE_BRG(rate)		((FOSC/rate)/64)-1	// BRG16 = 0, BRGH = 0
@@ -15,14 +17,64 @@
 #define CALCULATE_BRG_16H(rate)	((FOSC/rate)/4)-1	// BRG16 = 1, BRGH = 1
 
 // DEFINITIONS-----------------------------------------------------------------
-#define XON					0x11	// Software flow control XON character
-#define XOFF				0x13	// Software flow control XOFF character
-#define TX_BUFFER_SIZE		32
+#define TX_BUFFER_SIZE		256
 #define RX_BUFFER_SIZE		256
+#define LINE_BUFFER_SIZE	120
 #define XOFF_THRESHOLD		(3 * RX_BUFFER_SIZE) / 4
 #define XON_THRESHOLD		RX_BUFFER_SIZE / 4
 
+// DEFINITIONS (ASCII CONTROL CHARACTERS)--------------------------------------
+#define ASCII_NUL	0x00	// Null Character
+#define ASCII_SOH	0x01	// Start of Heading
+#define ASCII_STX	0x02	// Start of Text
+#define ASCII_ETX	0x03	// End of Text
+#define ASCII_EOT	0x04	// End of Transmission
+#define ASCII_ENQ	0x05	// Enquiry
+#define ASCII_ACK	0x06	// Acknowledgement
+#define ASCII_BEL	0x07	// Bell
+#define ASCII_BS	0x08	// Backspace
+#define ASCII_HT	0x09	// Horizontal Tab
+#define ASCII_LF	0x0A	// Line Feed
+#define ASCII_VT	0x0B	// Vertical Tab
+#define ASCII_FF	0x0C	// Form Feed
+#define ASCII_CR	0x0D	// Carriage Return
+#define ASCII_SO	0x0E	// Shift Out / X-On
+#define ASCII_SI	0x0F	// Shift In / X-Off
+#define ASCII_DLE	0x10	// Data Line Escape
+#define ASCII_DC1	0x11	// Device Control 1 (XON)
+#define ASCII_XON	ASCII_DC1
+#define ASCII_DC2	0x12	// Device Control 2
+#define ASCII_DC3	0x13	// Device Control 3 (XOFF)
+#define ASCII_XOFF	ASCII_DC3
+#define ASCII_DC4	0x14	// Device Control 4
+#define ASCII_NAK	0x15	// Negative Acknowledgement
+#define ASCII_SYN	0x16	// Synchronous Idle
+#define ASCII_ETB	0x17	// End of Transmit Block
+#define ASCII_CAN	0x18	// Cancel
+#define ASCII_EM	0x19	// End of Medium
+#define ASCII_SUB	0x1A	// Substitute
+#define ASCII_ESC	0x1B	// Escape
+#define ASCII_FS	0x1C	// File Separator
+#define ASCII_GS	0x1D	// Group Separator
+#define ASCII_RS	0x1E	// Record Separator
+#define ASCII_US	0x1F	// Unit Separator
+
 // TYPE DEFINITIONS------------------------------------------------------------
+typedef struct CommPort CommPort;		// Forward declaration of CommPort struct
+typedef void (*CommAction)(CommPort*) ;
+
+typedef enum
+{
+	CR_ONLY	= 1,
+	LF_ONLY	= 2,
+	CR_LF	= 3
+} LineTermination;
+
+typedef enum
+{
+	COMM_IDLE		= 0,
+	COMM_GETLINE	= 1
+} CommActions;
 
 typedef struct
 {
@@ -33,35 +85,60 @@ typedef struct
 	char* data;
 } RingBuffer;
 
-typedef union
+typedef struct
+{
+	uint16_t bufferSize;
+	uint16_t length;
+	char* data;
+} LineBuffer;
+
+typedef struct
+{
+	uint8_t volatile* const pTxReg;
+	uint8_t volatile* const pRxReg;
+	TXSTAbits_t volatile* const pTxSta;
+	RCSTAbits_t volatile* const pRxSta;
+} CommDataRegisters;
+
+typedef struct CommPort
 {
 
-	struct
+	union
 	{
-		unsigned isRxPaused : 1;
-		unsigned isTxPaused : 1;
-		unsigned isRxFlowControl : 1;
-		unsigned : 5;
-	} statusBits;
-	uint8_t status;
-} CommStatus;
 
-// GLOBAL VARIABLES------------------------------------------------------------
-extern volatile RingBuffer _txBuffer1, _txBuffer2, _rxBuffer1, _rxBuffer2;
-extern volatile CommStatus _commStatus1, _commStatus2;
+		struct
+		{
+			unsigned isTxFlowControl : 1;
+			unsigned isRxFlowControl : 1;
+			unsigned isTxPaused : 1;
+			unsigned isRxPaused : 1;
+			unsigned hasLine : 1;
+			unsigned isLineBufferFull : 1;
+			unsigned : 2;
+		} statusBits;
+		uint8_t status;
+	} ;
+	LineTermination txLineTermination;
+	LineTermination rxLineTermination;
+	uint8_t delimCount;
+	CommAction RxAction;
+	const CommDataRegisters * registers;
+	RingBuffer volatile txBuffer;
+	RingBuffer volatile rxBuffer;
+	LineBuffer lineBuffer;
+} CommPort;
 
 // FUNCTION PROTOTYPES---------------------------------------------------------
-// Ring Buffer Functions
-RingBuffer RingBufferCreate(uint16_t bufferSize, char* dataBuffer);
+CommPort CommPortCreate(uint16_t txBufferSize, uint16_t rxBufferSize, uint16_t lineBufferSize,
+						char* txData, char* rxData, char* lineData,
+						LineTermination txLineTermination, LineTermination rxLineTermination,
+						const CommDataRegisters* registers);
+void CommPortUpdate(CommPort* comm);
+RingBuffer RingBufferCreate(uint16_t bufferSize, char* data);
 void RingBufferEnqueue(volatile RingBuffer* buffer, char data);
 char RingBufferDequeue(volatile RingBuffer* buffer);
-// STDIO Functions
-char getch1(void);
-char getch2(void);
-void putch1(char data);
-void putch2(char data);
-// Flow Control Functions
-void CheckFlowControlRx1(void);
-void CheckFlowControlRx2(void);
-
+LineBuffer LineBufferCreate(uint16_t bufferSize, char* data);
+// Data Transport Functions
+int CommPutString(CommPort* comm, const char* str);
+void CommGetString(CommPort* comm);
 #endif

@@ -7,6 +7,9 @@
 #ifndef MAIN_H
 #define MAIN_H
 
+#include "serial_comm.h"
+
+
 // DEFINITIONS (OSCILLATOR)----------------------------------------------------
 #define	FOSC	48000000L	// PLL generated system clock frequency	(48 MHz)
 #define	FCY		FOSC/4		// Instruction cycle frequency			(12 MHz)
@@ -40,6 +43,8 @@
 
 // GLOBAL VARIABLES------------------------------------------------------------
 extern volatile uint32_t _tick;
+extern CommPort _comm1, _comm2;
+extern const CommDataRegisters _comm1Regs, _comm2Regs;
 
 // FUNCTION PROTOTYPES---------------------------------------------------------
 // Initialization

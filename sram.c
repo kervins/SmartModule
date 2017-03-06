@@ -15,6 +15,18 @@
 volatile SramStatus _sramStatus;
 volatile SramPacket _sramPacket;
 
+// INITIALIZATION FUNCTIONS----------------------------------------------------
+
+SramStatus SramStatusCreate(void)
+{
+	SramStatus sramStatus;
+	sramStatus.status = 0;
+	sramStatus.dataLength = 0;
+	sramStatus.readAddress = 0;
+	sramStatus.writeAddress = 0;
+	return sramStatus;
+}
+
 // N01S830XX Functions---------------------------------------------------------
 
 void SramSetMode(SramMode mode)
