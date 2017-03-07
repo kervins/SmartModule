@@ -63,6 +63,7 @@ typedef struct
 		uint8_t status;
 	} ;
 	uint24_t dataLength;
+	uint24_t dataOffset;
 	uint24_t readAddress;
 	uint24_t writeAddress;
 } SramStatus;
@@ -99,11 +100,12 @@ SramStatus SramStatusCreate(void);
 void SramSetMode(SramMode mode);
 void SramRead(uint24_t address, uint24_t length);
 void SramReadNext(uint24_t length);
-void SramReadContinue(void);
-void SramWrite(uint24_t address, const void* data, uint24_t length);
-void SramWriteNext(const void* data, uint24_t length);
-void SramWriteContinue(void);
+void _SramRead(void);
+void SramBeginWrite(uint24_t address, uint24_t length);
+void SramWriteNext(uint8_t data);
+void _SramWrite(void);
 void SramFill(uint24_t address, uint24_t length, uint8_t value);
-void SramFillContinue(void);
-void SramCommandAddress(void);
+void _SramFill(void);
+void _SramCommandAddress(void);
+void SramUpdate(volatile SramStatus* status);
 #endif

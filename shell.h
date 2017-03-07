@@ -9,16 +9,17 @@
 
 #include <stdint.h>
 #include "common_types.h"
+#include "serial_comm.h"
 
 // DEFINITIONS-----------------------------------------------------------------
-#define LINE_TERMINATOR	ASCII_LF
-#define LINE_LENGTH_MAX	200
-#define PARAM_COUNT_MAX	16
 
 // TYPE DEFINITIONS------------------------------------------------------------
 
 // GLOBAL VARIABLES------------------------------------------------------------
 
 // FUNCTION PROTOTYPES---------------------------------------------------------
+// Console Functions
+void SendLineToTerminal(CommPort* comm);
+void SendLineToWifi(CommPort* comm);
 
 #endif

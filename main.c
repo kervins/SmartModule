@@ -23,8 +23,8 @@
 // GLOBAL VARIABLES------------------------------------------------------------
 volatile uint32_t _tick = 0;	// Global timekeeping variable (not related to RTCC)
 CommPort _comm1, _comm2;
-const CommDataRegisters _comm1Regs = {&TXREG1, &RCREG1, (TXSTAbits_t*) & TXSTA1, (RCSTAbits_t*) & RCSTA1};
-const CommDataRegisters _comm2Regs = {&TXREG2, &RCREG2, (TXSTAbits_t*) & TXSTA2, (RCSTAbits_t*) & RCSTA2};
+const CommDataRegisters _comm1Regs = {&TXREG1, (TXSTAbits_t*) & TXSTA1, &PIE1, 4};
+const CommDataRegisters _comm2Regs = {&TXREG2, (TXSTAbits_t*) & TXSTA2, &PIE3, 4};
 
 // PROGRAM ENTRY---------------------------------------------------------------
 
@@ -49,14 +49,16 @@ void main(void)
 	char lineData2[LINE_BUFFER_SIZE];
 	_comm1 = CommPortCreate(TX_BUFFER_SIZE, RX_BUFFER_SIZE, LINE_BUFFER_SIZE,
 							txData1, rxData1, lineData1,
-							CR_LF, CR_LF,
-							&_comm1Regs);
+							CR_LF, CR_LF, &_comm1Regs);
 	_comm2 = CommPortCreate(TX_BUFFER_SIZE, RX_BUFFER_SIZE, LINE_BUFFER_SIZE,
 							txData2, rxData2, lineData2,
-							CR_LF, CR_ONLY,
-							&_comm2Regs);
-	_comm1.RxAction = CommGetString;
-	_comm2.RxAction = CommGetString;
+							CR_LF, CR_ONLY, &_comm2Regs);
+	_comm1.statusBits.isTxFlowControl = false;
+	_comm1.statusBits.isRxFlowControl = false;
+	_comm1.RxAction = CommGetLine;
+	_comm1.LineAction = SendLineToTerminal;
+	_comm2.RxAction = CommGetLine;
+	_comm2.LineAction = SendLineToTerminal;
 	_sramStatus = SramStatusCreate();
 	_button = ButtonInfoCreate(ButtonPress, ButtonHold, ButtonRelease, 0);
 
@@ -73,6 +75,7 @@ void main(void)
 	// Start tick timer (Timer 4)
 	T4CONbits.TMR4ON = true;
 
+
 	// Main program loop
 	while(true)
 	{
@@ -83,32 +86,8 @@ void main(void)
 		CommPortUpdate(&_comm1);
 		CommPortUpdate(&_comm2);
 
-		if(_comm1.statusBits.hasLine)
-		{
-			CommPutString(&_comm2, _comm1.lineBuffer.data);
-			_comm1.lineBuffer.length = 0;
-			_comm1.statusBits.hasLine = false;
-			_comm1.RxAction = CommGetString;
-		}
-
-		if(_comm2.statusBits.hasLine)
-		{
-			CommPutString(&_comm2, _comm2.lineBuffer.data);
-			_comm2.lineBuffer.length = 0;
-			_comm2.statusBits.hasLine = false;
-			_comm2.RxAction = CommGetString;
-		}
-
 		// SRAM--------------------------------------------
-		if(!_sramStatus.statusBits.isBusy)
-		{
-			if(_sramStatus.statusBits.isReading)
-				SramReadContinue();
-			if(_sramStatus.statusBits.isWriting)
-				SramWriteContinue();
-			if(_sramStatus.statusBits.isFilling)
-				SramFillContinue();
-		}
+		SramUpdate(&_sramStatus);
 
 		// WIFI--------------------------------------------
 		// 2 seconds after startup (or WiFi reset), release WiFi module from reset
@@ -302,7 +281,17 @@ void InitializeInterrupts(void)
 
 void ButtonPress(void)
 {
-	;
+	SramBeginWrite(0x000000, 10);
+	SramWriteNext('1');
+	SramWriteNext('2');
+	SramWriteNext('3');
+	SramWriteNext('4');
+	SramWriteNext('5');
+	SramWriteNext('6');
+	SramWriteNext('7');
+	SramWriteNext('8');
+	SramWriteNext('9');
+	SramWriteNext('0');
 }
 
 void ButtonHold(void)
@@ -314,5 +303,3 @@ void ButtonRelease(void)
 {
 	;
 }
-
-// SERIAL COMM ACTIONS---------------------------------------------------------

@@ -8,6 +8,7 @@
 #define SERIAL_COMM_H
 
 #include "common_types.h"
+#include "ringbuffer.h"
 
 // MACROS (Calculates SPBRG values for USART baud rate generator)--------------
 // Each definition contains a value that is to be loaded into the BRG registers (SPBRGHx:SPBRGx)
@@ -17,7 +18,7 @@
 #define CALCULATE_BRG_16H(rate)	((FOSC/rate)/4)-1	// BRG16 = 1, BRGH = 1
 
 // DEFINITIONS-----------------------------------------------------------------
-#define TX_BUFFER_SIZE		256
+#define TX_BUFFER_SIZE		64
 #define RX_BUFFER_SIZE		256
 #define LINE_BUFFER_SIZE	120
 #define XOFF_THRESHOLD		(3 * RX_BUFFER_SIZE) / 4
@@ -58,32 +59,18 @@
 #define ASCII_GS	0x1D	// Group Separator
 #define ASCII_RS	0x1E	// Record Separator
 #define ASCII_US	0x1F	// Unit Separator
+#define ASCII_DEL	0x7F	// Delete
 
 // TYPE DEFINITIONS------------------------------------------------------------
-typedef struct CommPort CommPort;		// Forward declaration of CommPort struct
+typedef struct CommPort CommPort;		// Forward declaration for CommPort struct
 typedef void (*CommAction)(CommPort*) ;
 
 typedef enum
 {
-	CR_ONLY	= 1,
-	LF_ONLY	= 2,
-	CR_LF	= 3
+	CR_LF	= 1,
+	CR_ONLY	= ASCII_CR,
+	LF_ONLY	= ASCII_LF
 } LineTermination;
-
-typedef enum
-{
-	COMM_IDLE		= 0,
-	COMM_GETLINE	= 1
-} CommActions;
-
-typedef struct
-{
-	uint16_t bufferSize;
-	uint16_t length;
-	uint16_t head;
-	uint16_t tail;
-	char* data;
-} RingBuffer;
 
 typedef struct
 {
@@ -95,9 +82,9 @@ typedef struct
 typedef struct
 {
 	uint8_t volatile* const pTxReg;
-	uint8_t volatile* const pRxReg;
 	TXSTAbits_t volatile* const pTxSta;
-	RCSTAbits_t volatile* const pRxSta;
+	uint8_t volatile* const pPie;
+	uint8_t const txieBit;
 } CommDataRegisters;
 
 typedef struct CommPort
@@ -113,8 +100,7 @@ typedef struct CommPort
 			unsigned isTxPaused : 1;
 			unsigned isRxPaused : 1;
 			unsigned hasLine : 1;
-			unsigned isLineBufferFull : 1;
-			unsigned : 2;
+			unsigned : 3;
 		} statusBits;
 		uint8_t status;
 	} ;
@@ -122,10 +108,12 @@ typedef struct CommPort
 	LineTermination rxLineTermination;
 	uint8_t delimCount;
 	CommAction RxAction;
+	CommAction LineAction;
+	uint24_t rxByteCount;
 	const CommDataRegisters * registers;
 	RingBuffer volatile txBuffer;
 	RingBuffer volatile rxBuffer;
-	LineBuffer lineBuffer;
+	RingBuffer lineBuffer;
 } CommPort;
 
 // FUNCTION PROTOTYPES---------------------------------------------------------
@@ -134,11 +122,10 @@ CommPort CommPortCreate(uint16_t txBufferSize, uint16_t rxBufferSize, uint16_t l
 						LineTermination txLineTermination, LineTermination rxLineTermination,
 						const CommDataRegisters* registers);
 void CommPortUpdate(CommPort* comm);
-RingBuffer RingBufferCreate(uint16_t bufferSize, char* data);
-void RingBufferEnqueue(volatile RingBuffer* buffer, char data);
-char RingBufferDequeue(volatile RingBuffer* buffer);
-LineBuffer LineBufferCreate(uint16_t bufferSize, char* data);
 // Data Transport Functions
-int CommPutString(CommPort* comm, const char* str);
-void CommGetString(CommPort* comm);
+void CommGetLine(CommPort* comm);
+void CommPutLine(CommPort* source, CommPort* destination);
+void CommPutString(CommPort* comm, const char* str);
+void CommPutLineTermination(CommPort* comm);
+void CommPutChar(CommPort* comm, char data);
 #endif

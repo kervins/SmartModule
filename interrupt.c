@@ -52,8 +52,6 @@ void __interrupt(low_priority) isrLowPriority(void)
 			_sramStatus.writeAddress += _sramStatus.dataLength;
 			if(_sramStatus.writeAddress >= SRAM_CAPACITY)
 				_sramStatus.writeAddress = 0;
-			_sramStatus.dataLength = 0;
-			_sramStatus.statusBits.isWriting = false;
 		}
 		else if(_sramStatus.statusBits.isFilling && _sramStatus.dataLength == 0)
 		{
@@ -62,25 +60,63 @@ void __interrupt(low_priority) isrLowPriority(void)
 		_sramStatus.statusBits.isBusy = false;
 		PIR3bits.SSP2IF = false;
 	}
+
+	if(PIR1bits.TX1IF)
+	{
+		if(_comm1.txBuffer.length && !_comm1.statusBits.isTxPaused)
+			TXREG1 = RingBufferDequeue(&_comm1.txBuffer);
+		else
+			PIE1bits.TX1IE = false;
+	}
+
 	if(PIR1bits.RC1IF)
 	{
-		char data = *_comm1.registers->pRxReg;
+		char data = RCREG1;
 		if(data == ASCII_XOFF && _comm1.statusBits.isTxFlowControl)
 			_comm1.statusBits.isTxPaused = true;
 		else if(data == ASCII_XON && _comm1.statusBits.isTxFlowControl)
 			_comm1.statusBits.isTxPaused = false;
 		else
 			RingBufferEnqueue(&_comm1.rxBuffer, data);
+
+		if(_comm1.statusBits.isRxFlowControl
+		&&!_comm1.statusBits.isRxPaused
+		&& _comm1.rxBuffer.length >= XOFF_THRESHOLD)
+		{
+			while(!TXSTA1bits.TRMT)
+				continue;
+			TXREG1 = ASCII_XOFF;
+			_comm1.statusBits.isRxPaused = true;
+		}
 	}
+
+	if(PIR3bits.TX2IF)
+	{
+		if(_comm2.txBuffer.length && !_comm2.statusBits.isTxPaused)
+			TXREG2 = RingBufferDequeue(&_comm2.txBuffer);
+		else
+			PIE3bits.TX2IE = false;
+	}
+
 	if(PIR3bits.RC2IF)
 	{
-		char data = *_comm2.registers->pRxReg;
+		char data = RCREG2;
 		if(data == ASCII_XOFF && _comm2.statusBits.isTxFlowControl)
 			_comm2.statusBits.isTxPaused = true;
 		else if(data == ASCII_XON && _comm2.statusBits.isTxFlowControl)
 			_comm2.statusBits.isTxPaused = false;
 		else
 			RingBufferEnqueue(&_comm2.rxBuffer, data);
+
+		if(_comm2.statusBits.isRxFlowControl
+		&&!_comm2.statusBits.isRxPaused
+		&& _comm2.rxBuffer.length >= XOFF_THRESHOLD)
+		{
+			while(!TXSTA2bits.TRMT)
+				continue;
+			TXREG2 = ASCII_XOFF;
+			_comm2.statusBits.isRxPaused = true;
+		}
 	}
 	return;
 }

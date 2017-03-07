@@ -9,6 +9,9 @@
 #include <stdint.h>
 #include <stdio.h>
 #include "serial_comm.h"
+#include "ringbuffer.h"
+#include "utility.h"
+#include "main.h"
 
 // GLOBAL VARIABLES------------------------------------------------------------
 
@@ -16,37 +19,22 @@
 
 void CommPortUpdate(CommPort* comm)
 {
-	// Manage RX flow control
-	if(comm->statusBits.isRxFlowControl)
+	// Manage RX flow control (This block of code sends XON, XOFF is sent in the ISR for comm RX)
+	if(comm->statusBits.isRxFlowControl
+	&& comm->statusBits.isRxPaused
+	&& comm->rxBuffer.length <= XON_THRESHOLD)
 	{
-		if(!comm->statusBits.isRxPaused
-		&& comm->rxBuffer.length >= XOFF_THRESHOLD
-		&& (*comm->registers->pTxSta).TRMT)
-		{
-			*comm->registers->pTxReg = ASCII_XOFF;
-			comm->statusBits.isRxPaused = true;
-		}
-		else if(comm->statusBits.isRxPaused
-				&& comm->rxBuffer.length <= XON_THRESHOLD
-				&& (*comm->registers->pTxSta).TRMT)
-		{
-			*comm->registers->pTxReg = ASCII_XON;
-			comm->statusBits.isRxPaused = false;
-		}
-	}
-
-	// Transmit the next character in the TX buffer
-	if(!comm->statusBits.isTxPaused
-	&& comm->txBuffer.length
-	&& (*comm->registers->pTxSta).TRMT)
-	{
-		char data = RingBufferDequeue(&comm->txBuffer);
-		*comm->registers->pTxReg = data;
+		while(!(*comm->registers->pTxSta).TRMT)
+			continue;
+		*comm->registers->pTxReg = ASCII_XON;
+		comm->statusBits.isRxPaused = false;
 	}
 
 	// Process received data
-	if(comm->rxBuffer.length && comm->RxAction)
+	if(comm->rxBuffer.length && !comm->statusBits.hasLine && comm->RxAction)
 		comm->RxAction(comm);
+	else if(comm->statusBits.hasLine && comm->LineAction)
+		comm->LineAction(comm);
 }
 
 // INITIALIZATION FUNCTIONS----------------------------------------------------
@@ -62,98 +50,26 @@ CommPort CommPortCreate(uint16_t txBufferSize, uint16_t rxBufferSize, uint16_t l
 	comm.rxLineTermination = rxLineTermination;
 	comm.delimCount = 0;
 	comm.RxAction = NULL;
+	comm.LineAction = NULL;
+	comm.rxByteCount = 0;
 	comm.txBuffer = RingBufferCreate(txBufferSize, txData);
 	comm.rxBuffer = RingBufferCreate(rxBufferSize, rxData);
-	comm.lineBuffer = LineBufferCreate(lineBufferSize, lineData);
+	comm.lineBuffer = RingBufferCreate(lineBufferSize, lineData);
 	comm.registers = registers;
 	return comm;
 }
 
-RingBuffer RingBufferCreate(uint16_t bufferSize, char* data)
-{
-	RingBuffer buffer;
-	buffer.bufferSize = bufferSize;
-	buffer.length = 0;
-	buffer.head = bufferSize - 1;
-	buffer.tail = 0;
-	buffer.data = data;
-	return buffer;
-}
-
-LineBuffer LineBufferCreate(uint16_t bufferSize, char* data)
-{
-	LineBuffer buffer;
-	buffer.bufferSize = bufferSize;
-	buffer.length = 0;
-	buffer.data = data;
-	return buffer;
-}
-
-// BUFFER MANAGEMENT FUNCTIONS-------------------------------------------------
-
-void RingBufferEnqueue(volatile RingBuffer* buffer, char data)
-{
-	if(buffer->length == buffer->bufferSize)	// Overflow hack
-		return;
-	buffer->head = (buffer->head + 1) % buffer->bufferSize;
-	buffer->data[buffer->head] = data;
-	buffer->length++;
-}
-
-char RingBufferDequeue(volatile RingBuffer* buffer)
-{
-	char data = buffer->data[buffer->tail];
-	buffer->tail = (buffer->tail + 1) % buffer->bufferSize;
-	buffer->length--;
-	return data;
-}
-
-/*void RingBufferEnqueue(volatile RingBuffer* buffer, char data)
-{
-	buffer->head = (buffer->head + 1) % buffer->bufferSize;
-	buffer->data[buffer->head] = data;
-	if(buffer->length == buffer->bufferSize)
-		buffer->tail = (buffer->tail + 1) % buffer->bufferSize;
-	else
-		buffer->length++;
-}*/
-
 // DATA TRANSPORT FUNCTIONS----------------------------------------------------
 
-int CommPutString(CommPort* comm, const char* str)
+void CommGetData(CommPort* comm)
 {
-	int length = 0;
-	while(comm->txBuffer.length < comm->txBuffer.bufferSize && str[length] != ASCII_NUL)
-	{
-		RingBufferEnqueue(&comm->txBuffer, str[length]);
-		length++;
-	}
-	if(length)
-	{
-		switch(comm->txLineTermination)
-		{
-			case CR_ONLY:
-			{
-				RingBufferEnqueue(&comm->txBuffer, ASCII_CR);
-				break;
-			}
-			case LF_ONLY:
-			{
-				RingBufferEnqueue(&comm->txBuffer, ASCII_LF);
-				break;
-			}
-			case CR_LF:
-			{
-				RingBufferEnqueue(&comm->txBuffer, ASCII_CR);
-				RingBufferEnqueue(&comm->txBuffer, ASCII_LF);
-				break;
-			}
-		}
-	}
-	return length;
+	if(comm->rxBuffer.length == 0 || comm->rxByteCount == 0)
+		return;
+
+	uint8_t data = RingBufferDequeue(&comm->rxBuffer);
 }
 
-void CommGetString(CommPort* comm)
+void CommGetLine(CommPort* comm)
 {
 	if(comm->rxBuffer.length == 0 || comm->statusBits.hasLine)
 		return;
@@ -162,21 +78,19 @@ void CommGetString(CommPort* comm)
 	switch(ch)
 	{
 		case ASCII_BS:
+		case ASCII_DEL:
 		{
 			if(comm->lineBuffer.length)
-				comm->lineBuffer.length--;
+				RingBufferRemoveLast(&comm->lineBuffer, 1);
 			break;
 		}
 		case ASCII_LF:
-		{
-			break;
-		}
 		case ASCII_CR:
 		{
 			comm->delimCount++;
-			if(comm->rxLineTermination == CR_ONLY || comm->delimCount > 1)
+			if(comm->rxLineTermination == ch || comm->delimCount == 2)
 			{
-				comm->lineBuffer.data[comm->lineBuffer.length] = '\0';
+				RingBufferEnqueue(&comm->lineBuffer, ASCII_NUL);
 				comm->delimCount = 0;
 				comm->statusBits.hasLine = true;
 			}
@@ -184,13 +98,65 @@ void CommGetString(CommPort* comm)
 		}
 		default:
 		{
-			comm->lineBuffer.data[comm->lineBuffer.length] = ch;
-			comm->lineBuffer.length++;
+			RingBufferEnqueue(&comm->lineBuffer, ch);
 			break;
 		}
 	}
+}
 
-	comm->statusBits.isLineBufferFull = comm->rxBuffer.length == comm->rxBuffer.bufferSize;
-	if(comm->statusBits.hasLine)
-		comm->RxAction = NULL;
+void CommPutLine(CommPort* source, CommPort* destination)
+{
+	char ch = RingBufferDequeue(&source->lineBuffer);
+	if(ch == ASCII_NUL || source->lineBuffer.length == 0)
+	{
+		CommPutLineTermination(destination);
+		source->statusBits.hasLine = false;
+	}
+	else
+		CommPutChar(destination, ch);
+}
+
+void CommPutString(CommPort* comm, const char* str)
+{
+	uint24_t length = 0;
+	while(comm->txBuffer.length < comm->txBuffer.bufferSize && str[length] != ASCII_NUL)
+	{
+		CommPutChar(comm, str[length]);
+		length++;
+	}
+	if(length)
+	{
+		CommPutLineTermination(comm);
+	}
+}
+
+void CommPutLineTermination(CommPort* comm)
+{
+	switch(comm->txLineTermination)
+	{
+		case CR_ONLY:
+		{
+			CommPutChar(comm, ASCII_CR);
+			break;
+		}
+		case LF_ONLY:
+		{
+			CommPutChar(comm, ASCII_LF);
+			break;
+		}
+		case CR_LF:
+		{
+			CommPutChar(comm, ASCII_CR);
+			CommPutChar(comm, ASCII_LF);
+			break;
+		}
+	}
+}
+
+void CommPutChar(CommPort* comm, char data)
+{
+	while(comm->txBuffer.length == comm->txBuffer.bufferSize)
+		continue;
+	RingBufferEnqueue(&comm->txBuffer, data);
+	bit_set(*comm->registers->pPie, comm->registers->txieBit);
 }

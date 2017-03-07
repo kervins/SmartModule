@@ -7,8 +7,6 @@
 #include <xc.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <stdio.h>
-#include <string.h>
 #include "shell.h"
 #include "main.h"
 #include "sram.h"
@@ -17,10 +15,17 @@
 #include "common_types.h"
 
 // GLOBAL VARIABLES------------------------------------------------------------
-volatile uint8_t _stdoutTarget = 0, _stdinTarget = 0;
 
 // INITIALIZATION FUNCTIONS----------------------------------------------------
 
 // CONSOLE FUNCTIONS-----------------------------------------------------------
 
-// STDIO FUNCTIONS-------------------------------------------------------------
+void SendLineToTerminal(CommPort* comm)
+{
+	CommPutLine(comm, &_comm2);
+}
+
+void SendLineToWifi(CommPort* comm)
+{
+	CommPutLine(comm, &_comm1);
+}

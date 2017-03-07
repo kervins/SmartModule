@@ -22,6 +22,7 @@ SramStatus SramStatusCreate(void)
 	SramStatus sramStatus;
 	sramStatus.status = 0;
 	sramStatus.dataLength = 0;
+	sramStatus.dataOffset = 0;
 	sramStatus.readAddress = 0;
 	sramStatus.writeAddress = 0;
 	return sramStatus;
@@ -61,7 +62,7 @@ void SramRead(uint24_t address, uint24_t length)
 	_sramStatus.dataLength = length;
 	_sramPacket.initialization.command = SRAM_COMMAND_READ;
 	_sramPacket.initialization.address = address;
-	SramCommandAddress();
+	_SramCommandAddress();
 }
 
 void SramReadNext(uint24_t length)
@@ -73,10 +74,10 @@ void SramReadNext(uint24_t length)
 	_sramStatus.dataLength = length;
 	_sramPacket.initialization.command = SRAM_COMMAND_READ;
 	_sramPacket.initialization.address = _sramStatus.readAddress;
-	SramCommandAddress();
+	_SramCommandAddress();
 }
 
-void SramReadContinue(void)
+void _SramRead(void)
 {
 	_sramStatus.statusBits.isBusy = true;
 	_sramStatus.statusBits.keepEnabled = false;
@@ -91,7 +92,7 @@ void SramReadContinue(void)
 	DMACON1bits.DMAEN = true;
 }
 
-void SramWrite(uint24_t address, const void* data, uint24_t length)
+/*void SramWrite(uint24_t address, const void* data, uint24_t length)
 {
 	if(address >= SRAM_CAPACITY)
 		address %= SRAM_CAPACITY;
@@ -105,7 +106,7 @@ void SramWrite(uint24_t address, const void* data, uint24_t length)
 	_sramPacket.initialization.command = SRAM_COMMAND_WRITE;
 	_sramPacket.initialization.address = address;
 	memcpy(_sramPacket.data, data, length);
-	SramCommandAddress();
+	_SramCommandAddress();
 }
 
 void SramWriteNext(const void* data, uint24_t length)
@@ -118,10 +119,10 @@ void SramWriteNext(const void* data, uint24_t length)
 	_sramPacket.initialization.command = SRAM_COMMAND_WRITE;
 	_sramPacket.initialization.address = _sramStatus.writeAddress;
 	memcpy(_sramPacket.data, data, length);
-	SramCommandAddress();
+	_SramCommandAddress();
 }
 
-void SramWriteContinue(void)
+void _SramWrite(void)
 {
 	_sramStatus.statusBits.isBusy = true;
 	_sramStatus.statusBits.keepEnabled = false;
@@ -134,6 +135,44 @@ void SramWriteContinue(void)
 	DMABCL = GET_BYTE(_sramStatus.dataLength - 1, 0);
 	RAM_CS = 0;
 	DMACON1bits.DMAEN = true;
+}*/
+
+void SramBeginWrite(uint24_t address, uint24_t length)
+{
+	if(address >= SRAM_CAPACITY)
+		address %= SRAM_CAPACITY;
+	if(address + length >= SRAM_CAPACITY)
+		length = SRAM_CAPACITY - address;
+	_sramStatus.statusBits.isWriting = true;
+	_sramStatus.statusBits.keepEnabled = false;
+	_sramStatus.writeAddress = address;
+	_sramStatus.dataLength = length;
+	_sramStatus.dataOffset = 0;
+	_sramPacket.initialization.command = SRAM_COMMAND_WRITE;
+	_sramPacket.initialization.address = address;
+	_SramCommandAddress();
+}
+
+void SramWriteNext(uint8_t data)
+{
+	uint24_t packetOffset = _sramStatus.dataOffset % SRAM_BUFFER_SIZE;
+	_sramPacket.data[packetOffset] = data;
+	_sramStatus.dataOffset++;
+	if(packetOffset == SRAM_BUFFER_SIZE - 1
+	|| _sramStatus.dataLength - _sramStatus.dataOffset == 0)
+	{
+		_sramStatus.statusBits.isBusy = true;
+		_sramStatus.statusBits.keepEnabled = _sramStatus.dataLength - _sramStatus.dataOffset > SRAM_BUFFER_SIZE;
+		DMACON1bits.TXINC = true;
+		DMACON1bits.RXINC = false;
+		DMACON1bits.DUPLEX0 = 1;
+		TXADDRH = GET_BYTE((unsigned int) _sramPacket.data, 1);
+		TXADDRL = GET_BYTE((unsigned int) _sramPacket.data, 0);
+		DMABCH = GET_BYTE(packetOffset, 1);
+		DMABCL = GET_BYTE(packetOffset, 0);
+		RAM_CS = 0;
+		DMACON1bits.DMAEN = true;
+	}
 }
 
 void SramFill(uint24_t address, uint24_t length, uint8_t value)
@@ -147,10 +186,10 @@ void SramFill(uint24_t address, uint24_t length, uint8_t value)
 	_sramPacket.initialization.command = SRAM_COMMAND_WRITE;
 	_sramPacket.initialization.address = address;
 	_sramPacket.data[0] = value;
-	SramCommandAddress();
+	_SramCommandAddress();
 }
 
-void SramFillContinue(void)
+void _SramFill(void)
 {
 	_sramStatus.statusBits.isBusy = true;
 	DMACON1bits.TXINC = false;
@@ -175,7 +214,7 @@ void SramFillContinue(void)
 	DMACON1bits.DMAEN = true;
 }
 
-void SramCommandAddress(void)
+void _SramCommandAddress(void)
 {
 	_sramStatus.statusBits.isBusy = true;
 	_sramStatus.statusBits.isCommand = true;
@@ -189,4 +228,17 @@ void SramCommandAddress(void)
 	DMABCL = 0x03;
 	RAM_CS = 0;
 	DMACON1bits.DMAEN = true;
+}
+
+void SramUpdate(volatile SramStatus* status)
+{
+	if(_sramStatus.statusBits.isBusy)
+		return;
+
+	if(_sramStatus.statusBits.isReading)
+		_SramRead();
+	/*if(_sramStatus.statusBits.isWriting)
+		_SramWrite();*/
+	if(_sramStatus.statusBits.isFilling)
+		_SramFill();
 }

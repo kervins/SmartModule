@@ -13,6 +13,7 @@
       <itemPath>serial_comm.h</itemPath>
       <itemPath>wifi.h</itemPath>
       <itemPath>shell.h</itemPath>
+      <itemPath>ringbuffer.h</itemPath>
     </logicalFolder>
     <logicalFolder name="LinkerScript"
                    displayName="Linker Files"
@@ -29,6 +30,7 @@
       <itemPath>serial_comm.c</itemPath>
       <itemPath>wifi.c</itemPath>
       <itemPath>shell.c</itemPath>
+      <itemPath>ringbuffer.c</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"
