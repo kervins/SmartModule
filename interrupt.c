@@ -72,21 +72,24 @@ void __interrupt(low_priority) isrLowPriority(void)
 	if(PIR1bits.RC1IF)
 	{
 		char data = RCREG1;
-		if(data == ASCII_XOFF && _comm1.statusBits.isTxFlowControl)
-			_comm1.statusBits.isTxPaused = true;
-		else if(data == ASCII_XON && _comm1.statusBits.isTxFlowControl)
-			_comm1.statusBits.isTxPaused = false;
-		else
-			RingBufferEnqueue(&_comm1.rxBuffer, data);
-
-		if(_comm1.statusBits.isRxFlowControl
-		&&!_comm1.statusBits.isRxPaused
-		&& _comm1.rxBuffer.length >= XOFF_THRESHOLD)
+		if(!_comm1.statusBits.ignoreRx)
 		{
-			while(!TXSTA1bits.TRMT)
-				continue;
-			TXREG1 = ASCII_XOFF;
-			_comm1.statusBits.isRxPaused = true;
+			if(data == ASCII_XOFF && _comm1.statusBits.isTxFlowControl)
+				_comm1.statusBits.isTxPaused = true;
+			else if(data == ASCII_XON && _comm1.statusBits.isTxFlowControl)
+				_comm1.statusBits.isTxPaused = false;
+			else
+				RingBufferEnqueue(&_comm1.rxBuffer, data);
+
+			if(_comm1.statusBits.isRxFlowControl
+			   &&!_comm1.statusBits.isRxPaused
+			   && _comm1.rxBuffer.length >= XOFF_THRESHOLD)
+			{
+				while(!TXSTA1bits.TRMT)
+					continue;
+				TXREG1 = ASCII_XOFF;
+				_comm1.statusBits.isRxPaused = true;
+			}
 		}
 	}
 
@@ -101,21 +104,24 @@ void __interrupt(low_priority) isrLowPriority(void)
 	if(PIR3bits.RC2IF)
 	{
 		char data = RCREG2;
-		if(data == ASCII_XOFF && _comm2.statusBits.isTxFlowControl)
-			_comm2.statusBits.isTxPaused = true;
-		else if(data == ASCII_XON && _comm2.statusBits.isTxFlowControl)
-			_comm2.statusBits.isTxPaused = false;
-		else
-			RingBufferEnqueue(&_comm2.rxBuffer, data);
-
-		if(_comm2.statusBits.isRxFlowControl
-		&&!_comm2.statusBits.isRxPaused
-		&& _comm2.rxBuffer.length >= XOFF_THRESHOLD)
+		if(!_comm2.statusBits.ignoreRx)
 		{
-			while(!TXSTA2bits.TRMT)
-				continue;
-			TXREG2 = ASCII_XOFF;
-			_comm2.statusBits.isRxPaused = true;
+			if(data == ASCII_XOFF && _comm2.statusBits.isTxFlowControl)
+				_comm2.statusBits.isTxPaused = true;
+			else if(data == ASCII_XON && _comm2.statusBits.isTxFlowControl)
+				_comm2.statusBits.isTxPaused = false;
+			else
+				RingBufferEnqueue(&_comm2.rxBuffer, data);
+
+			if(_comm2.statusBits.isRxFlowControl
+			&&!_comm2.statusBits.isRxPaused
+			&& _comm2.rxBuffer.length >= XOFF_THRESHOLD)
+			{
+				while(!TXSTA2bits.TRMT)
+					continue;
+				TXREG2 = ASCII_XOFF;
+				_comm2.statusBits.isRxPaused = true;
+			}
 		}
 	}
 	return;

@@ -64,6 +64,7 @@
 // TYPE DEFINITIONS------------------------------------------------------------
 typedef struct CommPort CommPort;		// Forward declaration for CommPort struct
 typedef void (*CommAction)(CommPort*) ;
+typedef int (*CommFunc)(CommPort*, void*) ;
 
 typedef enum
 {
@@ -71,13 +72,6 @@ typedef enum
 	CR_ONLY	= ASCII_CR,
 	LF_ONLY	= ASCII_LF
 } LineTermination;
-
-typedef struct
-{
-	uint16_t bufferSize;
-	uint16_t length;
-	char* data;
-} LineBuffer;
 
 typedef struct
 {
@@ -100,7 +94,8 @@ typedef struct CommPort
 			unsigned isTxPaused : 1;
 			unsigned isRxPaused : 1;
 			unsigned hasLine : 1;
-			unsigned : 3;
+			unsigned ignoreRx : 1;
+			unsigned : 2;
 		} statusBits;
 		uint8_t status;
 	} ;
@@ -114,6 +109,7 @@ typedef struct CommPort
 	RingBuffer volatile txBuffer;
 	RingBuffer volatile rxBuffer;
 	RingBuffer lineBuffer;
+	RingBufferIterator lineIterator;
 } CommPort;
 
 // FUNCTION PROTOTYPES---------------------------------------------------------

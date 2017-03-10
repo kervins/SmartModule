@@ -17,13 +17,6 @@ RingBuffer RingBufferCreate(uint16_t bufferSize, char* data)
 	return buffer;
 }
 
-void RingBufferReset(volatile RingBuffer* buffer)
-{
-	buffer->length = 0;
-	buffer->head = buffer->bufferSize - 1;
-	buffer->tail = 0;
-}
-
 void RingBufferEnqueue(volatile RingBuffer* buffer, char data)
 {
 	if(buffer->length == buffer->bufferSize)	// Overflow hack
@@ -61,9 +54,41 @@ void RingBufferRemoveLast(volatile RingBuffer* buffer, uint16_t count)
 	buffer->length -= count;
 }
 
-char RingBufferPeek(volatile RingBuffer* buffer, uint16_t index)
+// ITERATION FUNCTIONS---------------------------------------------------------
+
+RingBufferIterator RingBufferCreateIterator(RingBuffer* buffer)
 {
-	if(index >= buffer->length)
-		index %= buffer->length;
-	return buffer->data[buffer->tail + index];
+	RingBufferIterator iterator;
+	iterator.index = 0;
+	iterator.buffer = buffer;
+	iterator.Start = _RBIStart;
+	iterator.SetCurrent = _RBISetCurrent;
+	iterator.GetCurrent = _RBIGetCurrent;
+	iterator.Next = _RBINext;
+	return iterator;
+}
+
+void _RBIStart(RingBufferIterator* iterator)
+{
+	iterator->index = 0;
+}
+
+void _RBISetCurrent(RingBufferIterator* iterator, uint8_t value)
+{
+	iterator->buffer->data[iterator->buffer->tail + iterator->index] = value;
+}
+
+uint8_t _RBIGetCurrent(RingBufferIterator* iterator)
+{
+	return iterator->buffer->data[iterator->buffer->tail + iterator->index];
+}
+
+bool _RBINext(RingBufferIterator* iterator)
+{
+	if(iterator->index < iterator->buffer->length - 1)  // TODO: Possible problem here
+	{
+		iterator->index++;
+		return true;
+	}
+	return false;
 }

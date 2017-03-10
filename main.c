@@ -4,6 +4,9 @@
  * Created:	December 16, 2016, 6:28 AM
  */
 
+// TODO: Compiler warning 350 and linker warning 1090 have been disabled... REENABLE when convenient
+// TODO: Compiler warning level was set to -3.  It is now at 0.  Consider changing back to the more verbose -3
+
 // INCLUDES--------------------------------------------------------------------
 #include <xc.h>
 #include <stdlib.h>
@@ -21,7 +24,11 @@
 #include "utility.h"
 
 // GLOBAL VARIABLES------------------------------------------------------------
-volatile uint32_t _tick = 0;	// Global timekeeping variable (not related to RTCC)
+volatile uint32_t _tick = 0, _prevTick = 0;	// Global timekeeping variable (not related to RTCC)
+volatile ButtonInfo _button;
+volatile SramStatus _sramStatus;
+volatile SramPacket _sramPacket;
+WifiStatus _wifi;
 CommPort _comm1, _comm2;
 const CommDataRegisters _comm1Regs = {&TXREG1, (TXSTAbits_t*) & TXSTA1, &PIE1, 4};
 const CommDataRegisters _comm2Regs = {&TXREG2, (TXSTAbits_t*) & TXSTA2, &PIE3, 4};
@@ -38,43 +45,7 @@ void main(void)
 	InitializeSpi();
 	InitializeUSART();
 	InitializeInterrupts();
-
-	// Initialize data
-	uint32_t prevTick = 0;
-	char txData1[TX_BUFFER_SIZE];
-	char txData2[TX_BUFFER_SIZE];
-	char rxData1[RX_BUFFER_SIZE];
-	char rxData2[RX_BUFFER_SIZE];
-	char lineData1[LINE_BUFFER_SIZE];
-	char lineData2[LINE_BUFFER_SIZE];
-	_comm1 = CommPortCreate(TX_BUFFER_SIZE, RX_BUFFER_SIZE, LINE_BUFFER_SIZE,
-							txData1, rxData1, lineData1,
-							CR_LF, CR_LF, &_comm1Regs);
-	_comm2 = CommPortCreate(TX_BUFFER_SIZE, RX_BUFFER_SIZE, LINE_BUFFER_SIZE,
-							txData2, rxData2, lineData2,
-							CR_LF, CR_ONLY, &_comm2Regs);
-	_comm1.statusBits.isTxFlowControl = false;
-	_comm1.statusBits.isRxFlowControl = false;
-	_comm1.RxAction = CommGetLine;
-	_comm1.LineAction = SendLineToTerminal;
-	_comm2.RxAction = CommGetLine;
-	_comm2.LineAction = SendLineToTerminal;
-	_sramStatus = SramStatusCreate();
-	_button = ButtonInfoCreate(ButtonPress, ButtonHold, ButtonRelease, 0);
-
-	// Set SRAM mode: HOLD function disabled, burst write
-	SramMode mode;
-	mode.value = 0;
-	mode.holdDisabled = true;
-	mode.mode = SRAM_MODE_BURST;
-	SramSetMode(mode);
-
-	// Blank entire SRAM array (fill with 0xFF)
-	SramFill(0x000000, SRAM_CAPACITY, 0xFF);
-
-	// Start tick timer (Timer 4)
-	T4CONbits.TMR4ON = true;
-
+	InitializeSystem();
 
 	// Main program loop
 	while(true)
@@ -90,32 +61,14 @@ void main(void)
 		SramUpdate(&_sramStatus);
 
 		// WIFI--------------------------------------------
-		// 2 seconds after startup (or WiFi reset), release WiFi module from reset
-		if(_wifiStatus == WIFI_STATUS_RESET_RELEASE && (_tick - _wifiTimestamp > 2000))
-		{
-			WIFI_RST = 1;
-			_wifiStatus = WIFI_STATUS_BOOT1;
-			_wifiTimestamp = _tick;
-		}
-
-		// After WiFi is released from reset, wait for WiFi initialization to complete,
-		// then change USART1 baud rate from 76800 to 115200
-		if(_wifiStatus == WIFI_STATUS_BOOT1 && (_tick - _wifiTimestamp > 100))
-		{
-			RCSTA1bits.SPEN	= false;
-			SPBRGH1	= GET_BYTE(CALCULATE_BRG_16H(115200), 1);
-			SPBRG1	= GET_BYTE(CALCULATE_BRG_16H(115200), 0);
-			RCSTA1bits.SPEN	= true;
-			_wifiStatus = WIFI_STATUS_BOOT2;
-			_wifiTimestamp = _tick;
-		}
+		// If system is booting, release Wifi from reset after 2 seconds
+		if(_wifi.bootStatus == WIFI_BOOT_POWER_ON_RESET_HOLD && (_tick - _wifi.eventTime > 2000))
+			WifiReset(WIFI_RESET_RELEASE);
+		else if(_wifi.bootStatus >= WIFI_BOOT_RESET_RELEASE && _wifi.bootStatus < WIFI_BOOT_COMPLETE)
+			WifiHandleBoot();
 
 		// SHELL-------------------------------------------
-		if(_tick - prevTick > 100)
-		{
-			;
-			prevTick = _tick;
-		}
+
 	}
 	return;
 }
@@ -277,21 +230,65 @@ void InitializeInterrupts(void)
 	INTCONbits.GIEL	= 1;	// Enable low-priority interrupts
 }
 
+void InitializeSystem(void)
+{
+	// Initialize global variables
+	char txData1[TX_BUFFER_SIZE];
+	char txData2[TX_BUFFER_SIZE];
+	char rxData1[RX_BUFFER_SIZE];
+	char rxData2[RX_BUFFER_SIZE];
+	char lineData1[LINE_BUFFER_SIZE];
+	char lineData2[LINE_BUFFER_SIZE];
+	_comm1 = CommPortCreate(TX_BUFFER_SIZE, RX_BUFFER_SIZE, LINE_BUFFER_SIZE,
+							txData1, rxData1, lineData1,
+							CR_LF, CR_LF, &_comm1Regs);
+	_comm2 = CommPortCreate(TX_BUFFER_SIZE, RX_BUFFER_SIZE, LINE_BUFFER_SIZE,
+							txData2, rxData2, lineData2,
+							CR_LF, CR_ONLY, &_comm2Regs);
+	_comm1.statusBits.isTxFlowControl = false;
+	_comm1.statusBits.isRxFlowControl = false;
+	_comm1.RxAction = CommGetLine;
+	_comm1.LineAction = NULL;			// TODO: Interfering with the WIFI startup parsing
+	_comm2.RxAction = CommGetLine;
+	_comm2.LineAction = SendLineToTerminal;
+	_button = ButtonInfoCreate(ButtonPress, ButtonHold, ButtonRelease, 0);
+	_sramStatus = SramStatusCreate();
+
+	// Hold Wifi in reset
+	WifiReset(WIFI_RESET_HOLD);
+	_wifi.bootStatus = WIFI_BOOT_POWER_ON_RESET_HOLD;
+
+	// Set SRAM mode: HOLD function disabled, burst write
+	SramMode mode;
+	mode.value = 0;
+	mode.holdDisabled = true;
+	mode.mode = SRAM_MODE_BURST;
+	SramSetMode(mode);
+
+	// Blank entire SRAM array (fill with 0xFF)
+	SramFill(0x000000, SRAM_CAPACITY, 0xFF);
+
+	// Start tick timer (Timer 4)
+	T4CONbits.TMR4ON = true;
+}
+
 // BUTTON ACTIONS--------------------------------------------------------------
 
 void ButtonPress(void)
 {
-	SramBeginWrite(0x000000, 10);
-	SramWriteNext('1');
-	SramWriteNext('2');
-	SramWriteNext('3');
-	SramWriteNext('4');
-	SramWriteNext('5');
-	SramWriteNext('6');
-	SramWriteNext('7');
-	SramWriteNext('8');
-	SramWriteNext('9');
-	SramWriteNext('0');
+	char testData[16];
+	RingBuffer test = RingBufferCreate(16, testData);
+	RingBufferEnqueue(&test, '0');
+	RingBufferEnqueue(&test, ' ');
+	RingBufferEnqueue(&test, 'r');
+	RingBufferEnqueue(&test, 'e');
+	RingBufferEnqueue(&test, 'a');
+	RingBufferEnqueue(&test, 'd');
+	RingBufferEnqueue(&test, 'y');
+	RingBufferEnqueue(&test, 'y');
+	RingBufferEnqueue(&test, ' ');
+	RingBufferEnqueue(&test, ASCII_NUL);
+	LED = LineContainsPeek(&test, "ready");
 }
 
 void ButtonHold(void)

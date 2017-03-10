@@ -11,10 +11,6 @@
 #include "main.h"
 #include "utility.h"
 
-// GLOBAL VARIABLES------------------------------------------------------------
-volatile SramStatus _sramStatus;
-volatile SramPacket _sramPacket;
-
 // INITIALIZATION FUNCTIONS----------------------------------------------------
 
 SramStatus SramStatusCreate(void)
@@ -22,7 +18,6 @@ SramStatus SramStatusCreate(void)
 	SramStatus sramStatus;
 	sramStatus.status = 0;
 	sramStatus.dataLength = 0;
-	sramStatus.dataOffset = 0;
 	sramStatus.readAddress = 0;
 	sramStatus.writeAddress = 0;
 	return sramStatus;
@@ -92,7 +87,7 @@ void _SramRead(void)
 	DMACON1bits.DMAEN = true;
 }
 
-/*void SramWrite(uint24_t address, const void* data, uint24_t length)
+void SramWrite(uint24_t address, const void* data, uint24_t length)
 {
 	if(address >= SRAM_CAPACITY)
 		address %= SRAM_CAPACITY;
@@ -135,44 +130,6 @@ void _SramWrite(void)
 	DMABCL = GET_BYTE(_sramStatus.dataLength - 1, 0);
 	RAM_CS = 0;
 	DMACON1bits.DMAEN = true;
-}*/
-
-void SramBeginWrite(uint24_t address, uint24_t length)
-{
-	if(address >= SRAM_CAPACITY)
-		address %= SRAM_CAPACITY;
-	if(address + length >= SRAM_CAPACITY)
-		length = SRAM_CAPACITY - address;
-	_sramStatus.statusBits.isWriting = true;
-	_sramStatus.statusBits.keepEnabled = false;
-	_sramStatus.writeAddress = address;
-	_sramStatus.dataLength = length;
-	_sramStatus.dataOffset = 0;
-	_sramPacket.initialization.command = SRAM_COMMAND_WRITE;
-	_sramPacket.initialization.address = address;
-	_SramCommandAddress();
-}
-
-void SramWriteNext(uint8_t data)
-{
-	uint24_t packetOffset = _sramStatus.dataOffset % SRAM_BUFFER_SIZE;
-	_sramPacket.data[packetOffset] = data;
-	_sramStatus.dataOffset++;
-	if(packetOffset == SRAM_BUFFER_SIZE - 1
-	|| _sramStatus.dataLength - _sramStatus.dataOffset == 0)
-	{
-		_sramStatus.statusBits.isBusy = true;
-		_sramStatus.statusBits.keepEnabled = _sramStatus.dataLength - _sramStatus.dataOffset > SRAM_BUFFER_SIZE;
-		DMACON1bits.TXINC = true;
-		DMACON1bits.RXINC = false;
-		DMACON1bits.DUPLEX0 = 1;
-		TXADDRH = GET_BYTE((unsigned int) _sramPacket.data, 1);
-		TXADDRL = GET_BYTE((unsigned int) _sramPacket.data, 0);
-		DMABCH = GET_BYTE(packetOffset, 1);
-		DMABCL = GET_BYTE(packetOffset, 0);
-		RAM_CS = 0;
-		DMACON1bits.DMAEN = true;
-	}
 }
 
 void SramFill(uint24_t address, uint24_t length, uint8_t value)
@@ -237,8 +194,8 @@ void SramUpdate(volatile SramStatus* status)
 
 	if(_sramStatus.statusBits.isReading)
 		_SramRead();
-	/*if(_sramStatus.statusBits.isWriting)
-		_SramWrite();*/
+	if(_sramStatus.statusBits.isWriting)
+		_SramWrite();
 	if(_sramStatus.statusBits.isFilling)
 		_SramFill();
 }

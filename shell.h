@@ -18,6 +18,9 @@
 // GLOBAL VARIABLES------------------------------------------------------------
 
 // FUNCTION PROTOTYPES---------------------------------------------------------
+// String (Line) Functions
+bool LineContains(RingBuffer* line, const char* str);
+bool LineContainsPeek(RingBuffer* line, const char* str);
 // Console Functions
 void SendLineToTerminal(CommPort* comm);
 void SendLineToWifi(CommPort* comm);

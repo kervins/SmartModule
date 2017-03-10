@@ -8,9 +8,6 @@
 #include "button.h"
 #include "main.h"
 
-// GLOBAL VARIABLES------------------------------------------------------------
-volatile ButtonInfo _button;
-
 // STATUS FUNCTIONS------------------------------------------------------------
 
 ButtonInfo ButtonInfoCreate(Action pressAction, Action holdAction, Action releaseAction, bool activeLogicLevel)

@@ -8,13 +8,16 @@
 #define COMMON_TYPES_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 // FUNCTION POINTERS-----------------------------------------------------------
-typedef void (*Action)(void) ;				// Generic function pointer, typedef'd for readability
-typedef uint8_t (*U8Func)(void) ;			// Function pointer that returns an unsigned char
-typedef void (*FuncV)(void*) ;				// Function pointer with one parameter (void*)
-typedef void (*FuncU8)(uint8_t);			// Function pointer with one parameter (unsigned char)
-typedef void (*FuncU8U8)(uint8_t, uint8_t);	// Function pointer with two parameters (unsigned char)
+typedef void (*Action)(void) ;
+typedef void (*Action_pV)(void*) ;
+typedef void (*Action_U8)(uint8_t);
+typedef void (*Action_U8_U8)(uint8_t, uint8_t);
+typedef bool (*B_Func)(void) ;
+typedef uint8_t (*U8_Func)(void) ;
+typedef uint8_t (*U8_Func_U8)(void) ;
 
 // ENUMERATED TYPES------------------------------------------------------------
 

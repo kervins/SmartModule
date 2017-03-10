@@ -10,21 +10,55 @@
 #include "wifi.h"
 #include "main.h"
 #include "serial_comm.h"
+#include "shell.h"
 #include "utility.h"
-
-// GLOBAL VARIABLES------------------------------------------------------------
-uint8_t _wifiStatus = WIFI_STATUS_RESET_RELEASE;
-uint32_t _wifiTimestamp = 0;
 
 // FUNCTIONS-------------------------------------------------------------------
 
-void WifiReset(void)
+void WifiReset(WifiResetTypes resetType)
 {
 	WIFI_RST = 0;
-	RCSTA1bits.SPEN	= false;
-	SPBRGH1	= GET_BYTE(CALCULATE_BRG_16H(76800), 1);
-	SPBRG1	= GET_BYTE(CALCULATE_BRG_16H(76800), 0);
+	if(resetType == WIFI_RESET_HOLD || resetType == WIFI_RESET_RESTART)
+	{
+		RCSTA1bits.SPEN	= false;
+		SPBRGH1	= GET_BYTE(CALCULATE_BRG_16H(76800), 1);
+		SPBRG1	= GET_BYTE(CALCULATE_BRG_16H(76800), 0);
+		_wifi.bootStatus = WIFI_BOOT_RESET_HOLD;
+		return;
+	}
+
 	RCSTA1bits.SPEN	= true;
-	_wifiStatus = WIFI_STATUS_RESET_RELEASE;
-	_wifiTimestamp = _tick;
+	_comm1.statusBits.ignoreRx = true;
+	_wifi.bootStatus = WIFI_BOOT_RESET_RELEASE;
+	_wifi.eventTime = _tick;
+	WIFI_RST = 1;
+}
+
+void WifiHandleBoot(void)
+{
+	if(_wifi.bootStatus == WIFI_BOOT_RESET_RELEASE && (_tick - _wifi.eventTime > 100))
+	{
+		_wifi.bootStatus = WIFI_BOOT_SELFCHECK;
+		_wifi.eventTime = _tick;
+	}
+	else if(_wifi.bootStatus == WIFI_BOOT_SELFCHECK)
+	{
+		RCSTA1bits.SPEN	= false;
+		SPBRGH1	= GET_BYTE(CALCULATE_BRG_16H(115200), 1);
+		SPBRG1	= GET_BYTE(CALCULATE_BRG_16H(115200), 0);
+		RCSTA1bits.SPEN	= true;
+		_comm1.statusBits.ignoreRx = false;
+		_wifi.bootStatus = WIFI_BOOT_INITIALIZING;
+		_wifi.eventTime = _tick;
+	}
+	else if(_wifi.bootStatus == WIFI_BOOT_INITIALIZING && _comm1.statusBits.hasLine)
+	{
+		// TODO: Lines are being manipulated out of order (the lineActions...)
+		_comm1.statusBits.ignoreRx = false;	// Just to allow breakpoint - delete when done
+		if(LineContains(&_comm1.lineBuffer, "ready"))
+		{
+			LED = 1;
+			_wifi.bootStatus = WIFI_BOOT_COMPLETE;
+		}
+	}
 }
