@@ -54,11 +54,9 @@ void WifiHandleBoot(void)
 	else if(_wifi.bootStatus == WIFI_BOOT_INITIALIZING && _comm1.statusBits.hasLine)
 	{
 		// TODO: Lines are being manipulated out of order (the lineActions...)
-		_comm1.statusBits.ignoreRx = false;	// Just to allow breakpoint - delete when done
 		if(LineContains(&_comm1.lineBuffer, "ready"))
-		{
-			LED = 1;
 			_wifi.bootStatus = WIFI_BOOT_COMPLETE;
-		}
+		_comm1.lineBuffer.length = 0;
+		_comm1.statusBits.hasLine = false;
 	}
 }

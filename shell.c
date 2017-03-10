@@ -19,58 +19,47 @@
 
 // INITIALIZATION FUNCTIONS----------------------------------------------------
 
-// LINE FUNCTIONS (RingBuffer Based)-------------------------------------------
+// LINE PARSING FUNCTIONS -----------------------------------------------------
 
-bool LineContains(RingBuffer* line, const char* str)
+bool LineContains(Buffer* line, const char* str)
 {
-	bool result = false;
-	int index = 0;
-	while(line->length)
+	int index = 0, offset = 0;
+	while(index < line->length && line->data[index] != str[0])
 	{
-		char ch = RingBufferDequeue(line);
-		if(ch == str[0])
-		{
-			result = true;
-			break;
-		}
-		if(ch == ASCII_NUL)
-			break;
+		index++;
 	}
-	while(line->length && result)
+	while(index < line->length && line->data[index] == str[offset])
 	{
-		if(str[index] == ASCII_NUL)
-			break;
-		if(RingBufferDequeue(line) != str[++index])
-			result = false;
+		index++;
+		offset++;
+		if(str[offset] == ASCII_NUL)
+			return true;
 	}
-	return result;
+	return false;
 }
 
-bool LineContainsPeek(RingBuffer* line, const char* str)
+// ACTIONS --------------------------------------------------------------------
+
+void LineToTerminal(CommPort* source)
 {
-	bool result = true;
-	uint16_t offset = 0;
-	RingBufferIterator iterator = RingBufferCreateIterator(line);
-	while(iterator.GetCurrent(&iterator) != str[0] && iterator.Next(&iterator))
-	{
-		continue;
-	}
-	while(str[++offset] != ASCII_NUL && result && iterator.Next(&iterator))
-	{
-		if(iterator.GetCurrent(&iterator) != str[offset])
-			result = false;
-	}
-	return result;
+	CommPutLine(source, &_comm2);
+	source->lineBuffer.length = 0;
+	source->statusBits.hasLine = false;
 }
 
-// CONSOLE FUNCTIONS-----------------------------------------------------------
-
-void SendLineToTerminal(CommPort* comm)
+void LineToWifi(CommPort* source)
 {
-	CommPutLine(comm, &_comm2);
+	CommPutLine(source, &_comm1);
+	source->lineBuffer.length = 0;
+	source->statusBits.hasLine = false;
 }
 
-void SendLineToWifi(CommPort* comm)
+// COMMANDS--------------------------------------------------------------------
+
+Shell ShellCreate(CommPort* terminalComm, uint16_t commandBufferSize, char* commandBuffer)
 {
-	CommPutLine(comm, &_comm1);
+	Shell shell;
+	shell.terminal = terminalComm;
+	shell.commandBuffer = BufferCreate(commandBufferSize, commandBuffer);
+	return shell;
 }

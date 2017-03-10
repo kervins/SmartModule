@@ -9,26 +9,23 @@
 
 #include <stdint.h>
 
-// DEFINITIONS-----------------------------------------------------------------
-#define WIFI_MODULE	ESP8266_01
-
 // TYPE DEFINITIONS------------------------------------------------------------
 
 typedef enum
 {
-	WIFI_BOOT_POWER_ON_RESET_HOLD = 0,
-	WIFI_BOOT_RESET_HOLD = 1,
-	WIFI_BOOT_RESET_RELEASE = 2,
-	WIFI_BOOT_SELFCHECK = 3,
-	WIFI_BOOT_INITIALIZING = 4,
-	WIFI_BOOT_COMPLETE = 5
+	WIFI_BOOT_POWER_ON_RESET_HOLD	= 0,
+	WIFI_BOOT_RESET_HOLD			= 1,
+	WIFI_BOOT_RESET_RELEASE			= 2,
+	WIFI_BOOT_SELFCHECK				= 3,
+	WIFI_BOOT_INITIALIZING			= 4,
+	WIFI_BOOT_COMPLETE				= 5
 } WifiBootStates;
 
 typedef enum
 {
-	WIFI_RESET_HOLD = 0,
-	WIFI_RESET_RELEASE = 1,
-	WIFI_RESET_RESTART = 2
+	WIFI_RESET_HOLD		= 0,
+	WIFI_RESET_RELEASE	= 1,
+	WIFI_RESET_RESTART	= 2
 } WifiResetTypes;
 
 typedef struct
@@ -36,6 +33,20 @@ typedef struct
 	WifiBootStates bootStatus;
 	uint32_t eventTime;
 } WifiStatus;
+
+// TYPE DEFINITIONS (ESP8266 COMMAND PARAMETERS)-------------------------------
+
+typedef struct CWLAP_options
+{
+	unsigned ecn : 1;
+	unsigned ssid : 1;
+	unsigned rssi : 1;
+	unsigned mac : 1;
+	unsigned ch : 1;
+	unsigned freqOffset : 1;
+	unsigned freqCalibration : 1;
+	unsigned : 1;
+} CWLAP_options;
 
 // CONSTANTS (ESP-8266 AT COMMANDS)--------------------------------------------
 // BASIC COMMANDS

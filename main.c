@@ -28,10 +28,11 @@ volatile uint32_t _tick = 0, _prevTick = 0;	// Global timekeeping variable (not 
 volatile ButtonInfo _button;
 volatile SramStatus _sramStatus;
 volatile SramPacket _sramPacket;
-WifiStatus _wifi;
 CommPort _comm1, _comm2;
 const CommDataRegisters _comm1Regs = {&TXREG1, (TXSTAbits_t*) & TXSTA1, &PIE1, 4};
 const CommDataRegisters _comm2Regs = {&TXREG2, (TXSTAbits_t*) & TXSTA2, &PIE3, 4};
+WifiStatus _wifi;
+Shell _shell;
 
 // PROGRAM ENTRY---------------------------------------------------------------
 
@@ -61,8 +62,7 @@ void main(void)
 		SramUpdate(&_sramStatus);
 
 		// WIFI--------------------------------------------
-		// If system is booting, release Wifi from reset after 2 seconds
-		if(_wifi.bootStatus == WIFI_BOOT_POWER_ON_RESET_HOLD && (_tick - _wifi.eventTime > 2000))
+		if((_wifi.bootStatus == WIFI_BOOT_POWER_ON_RESET_HOLD) && (_tick - _wifi.eventTime > 2000))
 			WifiReset(WIFI_RESET_RELEASE);
 		else if(_wifi.bootStatus >= WIFI_BOOT_RESET_RELEASE && _wifi.bootStatus < WIFI_BOOT_COMPLETE)
 			WifiHandleBoot();
@@ -239,6 +239,7 @@ void InitializeSystem(void)
 	char rxData2[RX_BUFFER_SIZE];
 	char lineData1[LINE_BUFFER_SIZE];
 	char lineData2[LINE_BUFFER_SIZE];
+	char shellData[SHELL_COMMAND_SIZE];
 	_comm1 = CommPortCreate(TX_BUFFER_SIZE, RX_BUFFER_SIZE, LINE_BUFFER_SIZE,
 							txData1, rxData1, lineData1,
 							CR_LF, CR_LF, &_comm1Regs);
@@ -247,12 +248,14 @@ void InitializeSystem(void)
 							CR_LF, CR_ONLY, &_comm2Regs);
 	_comm1.statusBits.isTxFlowControl = false;
 	_comm1.statusBits.isRxFlowControl = false;
+	_comm2.statusBits.echoRx = true;
 	_comm1.RxAction = CommGetLine;
-	_comm1.LineAction = NULL;			// TODO: Interfering with the WIFI startup parsing
+	_comm1.LineAction = LineToTerminal;
 	_comm2.RxAction = CommGetLine;
-	_comm2.LineAction = SendLineToTerminal;
+	_comm2.LineAction = LineToWifi;
 	_button = ButtonInfoCreate(ButtonPress, ButtonHold, ButtonRelease, 0);
 	_sramStatus = SramStatusCreate();
+	_shell = ShellCreate(&_comm2, SHELL_COMMAND_SIZE, shellData);
 
 	// Hold Wifi in reset
 	WifiReset(WIFI_RESET_HOLD);
@@ -276,19 +279,7 @@ void InitializeSystem(void)
 
 void ButtonPress(void)
 {
-	char testData[16];
-	RingBuffer test = RingBufferCreate(16, testData);
-	RingBufferEnqueue(&test, '0');
-	RingBufferEnqueue(&test, ' ');
-	RingBufferEnqueue(&test, 'r');
-	RingBufferEnqueue(&test, 'e');
-	RingBufferEnqueue(&test, 'a');
-	RingBufferEnqueue(&test, 'd');
-	RingBufferEnqueue(&test, 'y');
-	RingBufferEnqueue(&test, 'y');
-	RingBufferEnqueue(&test, ' ');
-	RingBufferEnqueue(&test, ASCII_NUL);
-	LED = LineContainsPeek(&test, "ready");
+	;
 }
 
 void ButtonHold(void)

@@ -18,13 +18,10 @@
 #define CALCULATE_BRG_16H(rate)	((FOSC/rate)/4)-1	// BRG16 = 1, BRGH = 1
 
 // DEFINITIONS-----------------------------------------------------------------
-#define TX_BUFFER_SIZE		64
-#define RX_BUFFER_SIZE		256
-#define LINE_BUFFER_SIZE	120
 #define XOFF_THRESHOLD		(3 * RX_BUFFER_SIZE) / 4
 #define XON_THRESHOLD		RX_BUFFER_SIZE / 4
 
-// DEFINITIONS (ASCII CONTROL CHARACTERS)--------------------------------------
+// DEFINITIONS (ASCII & ANSI CONTROL CHARACTERS)-------------------------------
 #define ASCII_NUL	0x00	// Null Character
 #define ASCII_SOH	0x01	// Start of Heading
 #define ASCII_STX	0x02	// Start of Text
@@ -60,17 +57,18 @@
 #define ASCII_RS	0x1E	// Record Separator
 #define ASCII_US	0x1F	// Unit Separator
 #define ASCII_DEL	0x7F	// Delete
+#define ANSI_CSI	0x9B	// Control Sequence Introducer
 
 // TYPE DEFINITIONS------------------------------------------------------------
 typedef struct CommPort CommPort;		// Forward declaration for CommPort struct
 typedef void (*CommAction)(CommPort*) ;
-typedef int (*CommFunc)(CommPort*, void*) ;
 
 typedef enum
 {
-	CR_LF	= 1,
 	CR_ONLY	= ASCII_CR,
-	LF_ONLY	= ASCII_LF
+	LF_ONLY	= ASCII_LF,
+	LF_CR	= 0xAD,
+	CR_LF	= 0xDA
 } LineTermination;
 
 typedef struct
@@ -93,26 +91,27 @@ typedef struct CommPort
 			unsigned isRxFlowControl : 1;
 			unsigned isTxPaused : 1;
 			unsigned isRxPaused : 1;
-			unsigned hasLine : 1;
 			unsigned ignoreRx : 1;
-			unsigned : 2;
+			unsigned echoRx : 1;
+			unsigned hasLine : 1;
+			unsigned : 1;
 		} statusBits;
 		uint8_t status;
 	} ;
-	LineTermination txLineTermination;
-	LineTermination rxLineTermination;
-	uint8_t delimCount;
+	LineTermination txNewline;
+	LineTermination rxNewline;
+	// TODO: Make escape sequence thingy
+	char delimeter;
 	CommAction RxAction;
 	CommAction LineAction;
-	uint24_t rxByteCount;
 	const CommDataRegisters * registers;
 	RingBuffer volatile txBuffer;
 	RingBuffer volatile rxBuffer;
-	RingBuffer lineBuffer;
-	RingBufferIterator lineIterator;
+	Buffer lineBuffer;
 } CommPort;
 
 // FUNCTION PROTOTYPES---------------------------------------------------------
+Buffer BufferCreate(uint16_t bufferSize, char* bufferData);
 CommPort CommPortCreate(uint16_t txBufferSize, uint16_t rxBufferSize, uint16_t lineBufferSize,
 						char* txData, char* rxData, char* lineData,
 						LineTermination txLineTermination, LineTermination rxLineTermination,
@@ -122,6 +121,6 @@ void CommPortUpdate(CommPort* comm);
 void CommGetLine(CommPort* comm);
 void CommPutLine(CommPort* source, CommPort* destination);
 void CommPutString(CommPort* comm, const char* str);
-void CommPutLineTermination(CommPort* comm);
+void CommPutNewline(CommPort* comm);
 void CommPutChar(CommPort* comm, char data);
 #endif

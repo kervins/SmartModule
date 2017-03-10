@@ -9,7 +9,6 @@
 
 #include "serial_comm.h"
 
-
 // DEFINITIONS (OSCILLATOR)----------------------------------------------------
 #define	FOSC	48000000L	// PLL generated system clock frequency	(48 MHz)
 #define	FCY		FOSC/4		// Instruction cycle frequency			(12 MHz)
@@ -38,8 +37,15 @@
 #define WIFI_RX			PORTCbits.TX1
 #define WIFI_TX			PORTCbits.RX1
 
+// DEFINITIONS (DATA)----------------------------------------------------------
+#define TX_BUFFER_SIZE		64
+#define RX_BUFFER_SIZE		256
+#define LINE_BUFFER_SIZE	120
+#define SHELL_COMMAND_SIZE	120		// Shell command string buffer
+
 // DEFINITIONS (OTHER)---------------------------------------------------------
-#define FIRMWARE_VERSION 1.00
+#define FIRMWARE_VERSION	1.00
+#define WIFI_MODULE			ESP8266_01
 
 // GLOBAL VARIABLES------------------------------------------------------------
 extern volatile uint32_t _tick;

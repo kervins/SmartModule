@@ -11,18 +11,24 @@
 #include "common_types.h"
 #include "serial_comm.h"
 
-// DEFINITIONS-----------------------------------------------------------------
-
 // TYPE DEFINITIONS------------------------------------------------------------
 
+typedef struct Shell
+{
+	CommPort* terminal;
+	Buffer commandBuffer;
+} Shell;
+
 // GLOBAL VARIABLES------------------------------------------------------------
+extern Shell _shell;
 
 // FUNCTION PROTOTYPES---------------------------------------------------------
-// String (Line) Functions
-bool LineContains(RingBuffer* line, const char* str);
-bool LineContainsPeek(RingBuffer* line, const char* str);
-// Console Functions
-void SendLineToTerminal(CommPort* comm);
-void SendLineToWifi(CommPort* comm);
+// Initialization Functions
+Shell ShellCreate(CommPort* terminalComm, uint16_t commandBufferSize, char* commandBuffer);
+// Parsing Functions
+bool LineContains(Buffer* line, const char* str);
+// Actions
+void LineToTerminal(CommPort* source);
+void LineToWifi(CommPort* source);
 
 #endif

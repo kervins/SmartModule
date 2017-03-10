@@ -8,10 +8,11 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include "main.h"
 #include "serial_comm.h"
 #include "ringbuffer.h"
 #include "utility.h"
-#include "main.h"
+#include "common_types.h"
 
 // COMM PORT TASK FUNCTIONS----------------------------------------------------
 
@@ -39,39 +40,34 @@ void CommPortUpdate(CommPort* comm)
 
 CommPort CommPortCreate(uint16_t txBufferSize, uint16_t rxBufferSize, uint16_t lineBufferSize,
 						char* txData, char* rxData, char* lineData,
-						LineTermination txLineTermination, LineTermination rxLineTermination,
+						LineTermination txNewline, LineTermination rxNewline,
 						const CommDataRegisters* registers)
 {
 	CommPort comm;
-	comm.status = 0x3;
-	comm.txLineTermination = txLineTermination;
-	comm.rxLineTermination = rxLineTermination;
-	comm.delimCount = 0;
+	comm.status = 0x3;	// By default, enable both TX and RX flow control
+	comm.txNewline = txNewline;
+	comm.rxNewline = rxNewline;
+	comm.delimeter = 0;
 	comm.RxAction = NULL;
 	comm.LineAction = NULL;
-	comm.rxByteCount = 0;
 	comm.txBuffer = RingBufferCreate(txBufferSize, txData);
 	comm.rxBuffer = RingBufferCreate(rxBufferSize, rxData);
-	comm.lineBuffer = RingBufferCreate(lineBufferSize, lineData);
-	comm.lineIterator = RingBufferCreateIterator(&comm.lineBuffer);
+	comm.lineBuffer = BufferCreate(lineBufferSize, lineData);
 	comm.registers = registers;
 	return comm;
 }
 
 // DATA TRANSPORT FUNCTIONS----------------------------------------------------
 
-void CommGetData(CommPort* comm)
-{
-	if(comm->rxBuffer.length == 0 || comm->rxByteCount == 0)
-		return;
-
-	uint8_t data = RingBufferDequeue(&comm->rxBuffer);
-}
-
 void CommGetLine(CommPort* comm)
 {
 	if(comm->statusBits.hasLine)
 		return;
+	else if(comm->lineBuffer.length == comm->lineBuffer.bufferSize)
+	{
+		comm->statusBits.hasLine = true;
+		return;
+	}
 
 	if(comm->rxBuffer.length == 0)
 	{
@@ -80,31 +76,46 @@ void CommGetLine(CommPort* comm)
 	}
 
 	char ch = RingBufferDequeue(&comm->rxBuffer);
+	if(comm->statusBits.echoRx)
+		CommPutChar(comm, ch);
+
 	switch(ch)
 	{
 		case ASCII_BS:
 		case ASCII_DEL:
 		{
 			if(comm->lineBuffer.length)
-				RingBufferRemoveLast(&comm->lineBuffer, 1);
+				comm->lineBuffer.length--;
 			break;
 		}
 		case ASCII_LF:
 		case ASCII_CR:
 		{
-			comm->delimCount++;
-			if(comm->rxLineTermination == ch || comm->delimCount == 2)
+			comm->delimeter |= ch;
+			if(comm->delimeter == comm->rxNewline)
 			{
-				RingBufferEnqueue(&comm->lineBuffer, ASCII_NUL);
-				comm->lineIterator.Start(&comm->lineIterator);
-				comm->delimCount = 0;
+				comm->lineBuffer.data[comm->lineBuffer.length] = ASCII_NUL;
+				comm->lineBuffer.length++;
+				comm->delimeter = 0;
 				comm->statusBits.hasLine = true;
 			}
+			else if(((comm->rxNewline >> 4) & 0xF) == ch)
+				comm->delimeter <<= 4;
+			else
+				comm->delimeter = 0;
+			break;
+		}
+		case ASCII_ESC:
+		{
+
 			break;
 		}
 		default:
 		{
-			RingBufferEnqueue(&comm->lineBuffer, ch);
+			if(comm->delimeter)		// An incomplete newline sequence has been received
+				comm->delimeter = 0;
+			comm->lineBuffer.data[comm->lineBuffer.length] = ch;
+			comm->lineBuffer.length++;
 			break;
 		}
 	}
@@ -112,76 +123,26 @@ void CommGetLine(CommPort* comm)
 
 void CommPutLine(CommPort* source, CommPort* destination)
 {
-	char ch = RingBufferDequeue(&source->lineBuffer);
-	if(ch == ASCII_NUL || source->lineBuffer.length == 0)
-		CommPutLineTermination(destination);
-	else
-		CommPutChar(destination, ch);
+	int i;
+	for(i = 0; i < source->lineBuffer.length && source->lineBuffer.data[i] != ASCII_NUL; i++)
+	{
+		CommPutChar(destination, source->lineBuffer.data[i]);
+	}
+	CommPutNewline(destination);
 }
-
-// TODO: Revisit this
-/*void CommPutLine(CommPort* source, CommPort* destination, bool deleteSourceData)
-{
-	char ch = deleteSourceData
-			? RingBufferDequeue(&source->lineBuffer)
-			: source->lineIterator.GetCurrent(&source->lineIterator);
-
-	if(ch == ASCII_NUL
-	|| (deleteSourceData && source->lineBuffer.length == 0))
-	{
-		CommPutLineTermination(destination);
-		source->statusBits.hasLine = false;
-	}
-	else if(ch == ASCII_NUL
-			|| (!deleteSourceData
-				&& !source->lineIterator.Next(&source->lineIterator)))
-	{
-		CommPutLineTermination(destination);
-	}
-	else
-	{
-		CommPutChar(destination, ch);
-	}
-}*/
-
-// TODO: Revisit this
-
-/*void CommPutLine(CommPort* source, CommPort* destination, bool deleteSourceData)
-{
-	char ch = deleteSourceData
-			? RingBufferDequeue(&source->lineBuffer)
-			: source->lineIterator.GetCurrent(&source->lineIterator);
-
-	if(ch == ASCII_NUL || (deleteSourceData
-						? source->lineBuffer.length == 0
-						: source->lineIterator.index == source->lineBuffer.length - 1))
-	{
-		CommPutLineTermination(destination);
-		source->statusBits.hasLine = false;
-	}
-	else
-	{
-		CommPutChar(destination, ch);
-	}
-}*/
 
 void CommPutString(CommPort* comm, const char* str)
 {
-	uint24_t length = 0;
-	while(comm->txBuffer.length < comm->txBuffer.bufferSize && str[length] != ASCII_NUL)
-	{
+	uint16_t length;
+	for(length = 0; str[length] != ASCII_NUL; length++)
 		CommPutChar(comm, str[length]);
-		length++;
-	}
 	if(length)
-	{
-		CommPutLineTermination(comm);
-	}
+		CommPutNewline(comm);
 }
 
-void CommPutLineTermination(CommPort* comm)
+void CommPutNewline(CommPort* comm)
 {
-	switch(comm->txLineTermination)
+	switch(comm->txNewline)
 	{
 		case CR_ONLY:
 		{
@@ -197,6 +158,12 @@ void CommPutLineTermination(CommPort* comm)
 		{
 			CommPutChar(comm, ASCII_CR);
 			CommPutChar(comm, ASCII_LF);
+			break;
+		}
+		case LF_CR:
+		{
+			CommPutChar(comm, ASCII_LF);
+			CommPutChar(comm, ASCII_CR);
 			break;
 		}
 	}

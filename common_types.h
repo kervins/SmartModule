@@ -55,9 +55,18 @@ typedef enum
 } IoDirection;
 
 // STRUCTURES------------------------------------------------------------------
+// Basic buffer containing unsigned char data with a maximum size of 65536 bytes
+
+typedef struct Buffer
+{
+	uint16_t bufferSize;
+	uint16_t length;
+	unsigned char* data;
+} Buffer;
+
 // Condenses a complete date and time into an efficient 43b structure
 
-typedef struct
+typedef struct DateTime
 {
 	unsigned second		: 6;
 	unsigned minute		: 6;
@@ -70,7 +79,7 @@ typedef struct
 
 // Structure that allows any 8b value to be interpreted as 2-digit Binary Coded Decimal
 
-typedef union
+typedef union BcdTwoDigit
 {
 
 	struct
@@ -83,7 +92,7 @@ typedef union
 
 // Structure that provides both the address and length of a file
 
-typedef struct
+typedef struct FileDescriptor
 {
 	uint24_t length;
 	uint24_t address;
