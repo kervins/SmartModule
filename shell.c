@@ -7,59 +7,50 @@
 #include <xc.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include "shell.h"
 #include "main.h"
 #include "sram.h"
 #include "serial_comm.h"
 #include "wifi.h"
-#include "common_types.h"
-#include "ringbuffer.h"
+#include "utility.h"
 
-// GLOBAL VARIABLES------------------------------------------------------------
+// SHELL COMMAND PROCESSOR FUNCTIONS ------------------------------------------
 
-// INITIALIZATION FUNCTIONS----------------------------------------------------
-
-// LINE PARSING FUNCTIONS -----------------------------------------------------
-
-bool LineContains(Buffer* line, const char* str)
+void ShellCommandProcessor(void)
 {
-	int index = 0, offset = 0;
-	while(index < line->length && line->data[index] != str[0])
+	if(_shell.terminal->statusBits.hasSequence)
 	{
-		index++;
+		CommResetSequence(_shell.terminal);
 	}
-	while(index < line->length && line->data[index] == str[offset])
+
+	while(_shell.terminal->lineQueue.length)
 	{
-		index++;
-		offset++;
-		if(str[offset] == ASCII_NUL)
-			return true;
+		while(_sram.isBusy)
+			continue;
+
+		uint24_t address = _shell.terminal->lineQueueBaseAddress +
+				(_shell.terminal->buffers.line.bufferSize * _shell.terminal->lineQueue.tail);
+		uint8_t length = RingBufferU8VolDequeue(&_shell.terminal->lineQueue);
+
+		SramRead(address, length, &_shell.swapBuffer);
+		while(_sram.isBusy)
+			continue;
+		CommPutBuffer(_shell.terminal, &_shell.swapBuffer);
 	}
-	return false;
 }
 
-// ACTIONS --------------------------------------------------------------------
+// COMMANDS -------------------------------------------------------------------
 
-void LineToTerminal(CommPort* source)
+// SHELL MANAGEMENT------------------------------------------------------------
+
+void ShellInitialize(CommPort* terminalComm, uint16_t swapBufferSize, char* swapBufferData)
 {
-	CommPutLine(source, &_comm2);
-	source->lineBuffer.length = 0;
-	source->statusBits.hasLine = false;
-}
-
-void LineToWifi(CommPort* source)
-{
-	CommPutLine(source, &_comm1);
-	source->lineBuffer.length = 0;
-	source->statusBits.hasLine = false;
-}
-
-// COMMANDS--------------------------------------------------------------------
-
-Shell ShellCreate(CommPort* terminalComm, uint16_t commandBufferSize, char* commandBuffer)
-{
-	Shell shell;
-	shell.terminal = terminalComm;
-	shell.commandBuffer = BufferCreate(commandBufferSize, commandBuffer);
-	return shell;
+	_shell.status = 0;
+	_shell.terminal = terminalComm;
+	BufferU8Create(&_shell.swapBuffer, swapBufferSize, swapBufferData);
+	_shell.currentTask = NULL;
+	_shell.taskQueue.length = 0;
+	_shell.taskQueue.head = SHELL_MAX_TASK_COUNT - 1;
+	_shell.taskQueue.tail = 0;
 }

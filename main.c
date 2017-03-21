@@ -26,15 +26,16 @@
 // GLOBAL VARIABLES------------------------------------------------------------
 volatile uint32_t _tick = 0, _prevTick = 0;	// Global timekeeping variable (not related to RTCC)
 volatile ButtonInfo _button;
-volatile SramStatus _sramStatus;
-volatile SramPacket _sramPacket;
+volatile Sram _sram;
 CommPort _comm1, _comm2;
 const CommDataRegisters _comm1Regs = {&TXREG1, (TXSTAbits_t*) & TXSTA1, &PIE1, 4};
 const CommDataRegisters _comm2Regs = {&TXREG2, (TXSTAbits_t*) & TXSTA2, &PIE3, 4};
 WifiStatus _wifi;
 Shell _shell;
+const uint24_t shellCommandAddress = 0;
 
 // PROGRAM ENTRY---------------------------------------------------------------
+void TestFunc(void);
 
 void main(void)
 {
@@ -48,6 +49,8 @@ void main(void)
 	InitializeInterrupts();
 	InitializeSystem();
 
+	//TestFunc();
+
 	// Main program loop
 	while(true)
 	{
@@ -55,20 +58,17 @@ void main(void)
 		CheckButton(&_button);
 
 		// USART-------------------------------------------
-		CommPortUpdate(&_comm1);
+		//CommPortUpdate(&_comm1);
 		CommPortUpdate(&_comm2);
 
-		// SRAM--------------------------------------------
-		SramUpdate(&_sramStatus);
-
 		// WIFI--------------------------------------------
-		if((_wifi.bootStatus == WIFI_BOOT_POWER_ON_RESET_HOLD) && (_tick - _wifi.eventTime > 2000))
+		/*if((_wifi.bootStatus == WIFI_BOOT_POWER_ON_RESET_HOLD) && (_tick - _wifi.eventTime > 2000))
 			WifiReset(WIFI_RESET_RELEASE);
 		else if(_wifi.bootStatus >= WIFI_BOOT_RESET_RELEASE && _wifi.bootStatus < WIFI_BOOT_COMPLETE)
-			WifiHandleBoot();
+			WifiHandleBoot();*/
 
 		// SHELL-------------------------------------------
-
+		ShellCommandProcessor();
 	}
 	return;
 }
@@ -232,43 +232,51 @@ void InitializeInterrupts(void)
 
 void InitializeSystem(void)
 {
-	// Initialize global variables
+	// Allocate buffers
 	char txData1[TX_BUFFER_SIZE];
 	char txData2[TX_BUFFER_SIZE];
 	char rxData1[RX_BUFFER_SIZE];
 	char rxData2[RX_BUFFER_SIZE];
 	char lineData1[LINE_BUFFER_SIZE];
 	char lineData2[LINE_BUFFER_SIZE];
-	char shellData[SHELL_COMMAND_SIZE];
-	_comm1 = CommPortCreate(TX_BUFFER_SIZE, RX_BUFFER_SIZE, LINE_BUFFER_SIZE,
-							txData1, rxData1, lineData1,
-							CR_LF, CR_LF, &_comm1Regs);
-	_comm2 = CommPortCreate(TX_BUFFER_SIZE, RX_BUFFER_SIZE, LINE_BUFFER_SIZE,
-							txData2, rxData2, lineData2,
-							CR_LF, CR_ONLY, &_comm2Regs);
-	_comm1.statusBits.isTxFlowControl = false;
-	_comm1.statusBits.isRxFlowControl = false;
-	_comm2.statusBits.echoRx = true;
-	_comm1.RxAction = CommGetLine;
-	_comm1.LineAction = LineToTerminal;
-	_comm2.RxAction = CommGetLine;
-	_comm2.LineAction = LineToWifi;
-	_button = ButtonInfoCreate(ButtonPress, ButtonHold, ButtonRelease, 0);
-	_sramStatus = SramStatusCreate();
-	_shell = ShellCreate(&_comm2, SHELL_COMMAND_SIZE, shellData);
+	uint8_t lineQueueData1[LINE_QUEUE_SIZE_COMM1];
+	uint8_t lineQueueData2[LINE_QUEUE_SIZE_COMM2];
+	char swapData[LINE_BUFFER_SIZE];
+
+	// Initialize global variables
+	CommPortCreate(&_comm1,
+				TX_BUFFER_SIZE, RX_BUFFER_SIZE, LINE_BUFFER_SIZE,
+				&txData1, &rxData1, &lineData1,
+				LINE_QUEUE_ADDR_COMM1, LINE_QUEUE_SIZE_COMM1, &lineQueueData1,
+				NEWLINE_CRLF, NEWLINE_CRLF,
+				&_comm1Regs,
+				false, false);
+	CommPortCreate(&_comm2,
+				TX_BUFFER_SIZE, RX_BUFFER_SIZE, LINE_BUFFER_SIZE,
+				&txData2, &rxData2, &lineData2,
+				LINE_QUEUE_ADDR_COMM2, LINE_QUEUE_SIZE_COMM2, &lineQueueData2,
+				NEWLINE_CRLF, NEWLINE_CR,
+				&_comm2Regs,
+				true, true);
+	ButtonInfoCreate(&_button, ButtonPress, ButtonHold, ButtonRelease, 0);
+	// TODO: Comm actions used to be defined... here
+	SramStatusInitialize();
+	ShellInitialize(&_comm2, LINE_BUFFER_SIZE, swapData);
+	// TODO: Shell needs to print initial command line... here
 
 	// Hold Wifi in reset
 	WifiReset(WIFI_RESET_HOLD);
 	_wifi.bootStatus = WIFI_BOOT_POWER_ON_RESET_HOLD;
 
 	// Set SRAM mode: HOLD function disabled, burst write
+	// Blank entire SRAM array (fill with 0xFF)
 	SramMode mode;
 	mode.value = 0;
 	mode.holdDisabled = true;
 	mode.mode = SRAM_MODE_BURST;
 	SramSetMode(mode);
-
-	// Blank entire SRAM array (fill with 0xFF)
+	while(_sram.isBusy)
+		continue;
 	SramFill(0x000000, SRAM_CAPACITY, 0xFF);
 
 	// Start tick timer (Timer 4)
@@ -276,6 +284,11 @@ void InitializeSystem(void)
 }
 
 // BUTTON ACTIONS--------------------------------------------------------------
+
+void TestFunc(void)
+{
+	;
+}
 
 void ButtonPress(void)
 {

@@ -9,7 +9,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "common_types.h"
+#include "utility.h"
 
 // DEFINITIONS-----------------------------------------------------------------
 // Button timing (ms)
@@ -23,7 +23,7 @@ typedef enum
 	BTN_PRESS, BTN_HOLD, BTN_RELEASE
 } ButtonStates;
 
-typedef struct
+typedef struct ButtonInfo
 {
 	uint32_t timestamp;
 	ButtonStates currentState;
@@ -36,11 +36,10 @@ typedef struct
 	Action releaseAction;
 } ButtonInfo;
 
-// GLOBAL VARIABLES------------------------------------------------------------
-extern volatile ButtonInfo _button;
-
 // FUNCTION PROTOTYPES---------------------------------------------------------
-ButtonInfo ButtonInfoCreate(Action pressAction, Action holdAction, Action releaseAction, bool activeLogicLevel);
+void ButtonInfoCreate(volatile ButtonInfo* button,
+					  Action pressAction, Action holdAction, Action releaseAction,
+					  bool activeLogicLevel);
 void UpdateButtonState(volatile ButtonInfo* buttonInfo, bool currentLogicLevel);
 void CheckButton(volatile ButtonInfo *buttonInfo);
 void ButtonPress(void);

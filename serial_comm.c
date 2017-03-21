@@ -10,18 +10,41 @@
 #include <stdio.h>
 #include "main.h"
 #include "serial_comm.h"
-#include "ringbuffer.h"
+#include "sram.h"
 #include "utility.h"
-#include "common_types.h"
 
-// COMM PORT TASK FUNCTIONS----------------------------------------------------
+// COMM PORT FUNCTIONS---------------------------------------------------------
+
+void CommPortCreate(CommPort* comm,
+					uint16_t txBufferSize, uint16_t rxBufferSize, uint16_t lineBufferSize,
+					char* txData, char* rxData, char* lineData,
+					uint24_t lineQueueBaseAddress, uint16_t lineQueueSize, uint8_t* lineQueueData,
+					NewlineFlags txNewline, NewlineFlags rxNewline,
+					const CommDataRegisters* registers,
+					bool enableFlowControl, bool enableEcho)
+{
+	comm->status = enableFlowControl ? 0x3 : 0x0;	// Enable TX and RX flow control
+	comm->mode = enableEcho ? 0x7 : 0x0;			// Enable character, newline, and sequence echo
+	comm->newline.tx = txNewline;
+	comm->newline.rx = rxNewline;
+	comm->newline.inProgress = 0;
+	comm->sequence.status = 0;
+	comm->sequence.paramCount = 0;
+	comm->sequence.terminator = 0;
+	comm->lineQueueBaseAddress = lineQueueBaseAddress;
+	RingBufferU8VolCreate(&comm->lineQueue, lineQueueSize, lineQueueData);
+	RingBufferU8VolCreate(&comm->buffers.tx, txBufferSize, txData);
+	RingBufferU8VolCreate(&comm->buffers.rx, rxBufferSize, rxData);
+	BufferU8Create(&comm->buffers.line, lineBufferSize, lineData);
+	comm->registers = registers;
+}
 
 void CommPortUpdate(CommPort* comm)
 {
-	// Manage RX flow control (This block of code sends XON, XOFF is sent in the ISR for comm RX)
+	// Manage RX flow control (This block of code sends XON, whereas XOFF is sent in the ISR for USART RX)
 	if(comm->statusBits.isRxFlowControl
 	&& comm->statusBits.isRxPaused
-	&& comm->rxBuffer.length <= XON_THRESHOLD)
+	&& comm->buffers.rx.length <= XON_THRESHOLD)
 	{
 		while(!(*comm->registers->pTxSta).TRMT)
 			continue;
@@ -29,106 +52,159 @@ void CommPortUpdate(CommPort* comm)
 		comm->statusBits.isRxPaused = false;
 	}
 
-	// Process received data
-	if(comm->rxBuffer.length && !comm->statusBits.hasLine && comm->RxAction)
-		comm->RxAction(comm);
-	else if(comm->statusBits.hasLine && comm->LineAction)
-		comm->LineAction(comm);
-}
-
-// INITIALIZATION FUNCTIONS----------------------------------------------------
-
-CommPort CommPortCreate(uint16_t txBufferSize, uint16_t rxBufferSize, uint16_t lineBufferSize,
-						char* txData, char* rxData, char* lineData,
-						LineTermination txNewline, LineTermination rxNewline,
-						const CommDataRegisters* registers)
-{
-	CommPort comm;
-	comm.status = 0x3;	// By default, enable both TX and RX flow control
-	comm.txNewline = txNewline;
-	comm.rxNewline = rxNewline;
-	comm.delimeter = 0;
-	comm.RxAction = NULL;
-	comm.LineAction = NULL;
-	comm.txBuffer = RingBufferCreate(txBufferSize, txData);
-	comm.rxBuffer = RingBufferCreate(rxBufferSize, rxData);
-	comm.lineBuffer = BufferCreate(lineBufferSize, lineData);
-	comm.registers = registers;
-	return comm;
-}
-
-// DATA TRANSPORT FUNCTIONS----------------------------------------------------
-
-void CommGetLine(CommPort* comm)
-{
-	if(comm->statusBits.hasLine)
+	// Only continue if all events have been handled
+	if(comm->statusBits.hasSequence
+	|| comm->lineQueue.length == comm->lineQueue.bufferSize)
 		return;
-	else if(comm->lineBuffer.length == comm->lineBuffer.bufferSize)
+
+	// Only continue if the RX buffer is not empty
+	if(comm->buffers.rx.length == 0)
+		return;
+
+	// Retrieve the next character from the RX buffer
+	char ch = RingBufferU8VolDequeue(&comm->buffers.rx);
+
+	// If an escape sequence has been initiated,
+	// retrieve parameters until terminating character is received
+	if(comm->sequence.statusBits.csiCharCount == 1)
 	{
-		comm->statusBits.hasLine = true;
-		return;
+		if(ch == '[')
+			comm->sequence.statusBits.csiCharCount++;
+		else
+			CommResetSequence(comm);
 	}
-
-	if(comm->rxBuffer.length == 0)
+	else if(comm->sequence.statusBits.csiCharCount == 2)
 	{
-		comm->statusBits.hasLine = false;
-		return;
-	}
-
-	char ch = RingBufferDequeue(&comm->rxBuffer);
-	if(comm->statusBits.echoRx)
-		CommPutChar(comm, ch);
-
-	switch(ch)
-	{
-		case ASCII_BS:
-		case ASCII_DEL:
+		// Check for terminating character (any alphabetical character)
+		// Check for parameters (0-9 and : ; < = > ?)
+		if((ch >= 0x41 && ch <= 0x5A) || (ch >= 0x61 && ch <= 0x7A))
 		{
-			if(comm->lineBuffer.length)
-				comm->lineBuffer.length--;
-			break;
-		}
-		case ASCII_LF:
-		case ASCII_CR:
-		{
-			comm->delimeter |= ch;
-			if(comm->delimeter == comm->rxNewline)
+			comm->sequence.terminator = ch;
+			comm->sequence.statusBits.sequenceId = ch;
+			comm->statusBits.hasSequence = true;
+
+			// If enabled, echo the sequence
+			if(comm->modeBits.echoSequence)
 			{
-				comm->lineBuffer.data[comm->lineBuffer.length] = ASCII_NUL;
-				comm->lineBuffer.length++;
-				comm->delimeter = 0;
-				comm->statusBits.hasLine = true;
+				CommPutChar(comm, ASCII_ESC);
+				CommPutChar(comm, '[');
+				uint8_t i;
+				for(i = 0; i < comm->sequence.paramCount; i++)
+				{
+					CommPutChar(comm, comm->sequence.params[i]);
+				}
+				CommPutChar(comm, comm->sequence.terminator);
 			}
-			else if(((comm->rxNewline >> 4) & 0xF) == ch)
-				comm->delimeter <<= 4;
-			else
-				comm->delimeter = 0;
-			break;
 		}
-		case ASCII_ESC:
+		else if(comm->sequence.paramCount < SEQ_MAX_PARAMS
+				&& (ch >= 0x30 && ch <= 0x3F)
+				&& !comm->sequence.terminator)
 		{
+			comm->sequence.params[comm->sequence.paramCount] = ch;
+			comm->sequence.paramCount++;
+		}
+		else
+		{
+			CommResetSequence(comm);
+		}
+	}
 
-			break;
-		}
-		default:
+	// If a control character was received, process it, otherwise add character to the line
+	if(ch < 0x20 && !comm->modeBits.isBinaryMode && !comm->sequence.status)
+	{
+		switch(ch)
 		{
-			if(comm->delimeter)		// An incomplete newline sequence has been received
-				comm->delimeter = 0;
-			comm->lineBuffer.data[comm->lineBuffer.length] = ch;
-			comm->lineBuffer.length++;
-			break;
+			case ASCII_BS:
+			{
+				if(comm->buffers.line.length)
+					comm->buffers.line.length--;
+				if(comm->modeBits.echoRx)
+					CommPutChar(comm, ch);
+				break;
+			}
+			case ASCII_LF:
+			{
+				comm->newline.inProgress |= NEWLINE_LF;
+				break;
+			}
+			case ASCII_CR:
+			{
+				comm->newline.inProgress |= NEWLINE_CR;
+				break;
+			}
+			case ASCII_ESC:
+			{
+				comm->sequence.statusBits.csiCharCount++;
+				break;
+			}
 		}
+	}
+	else if(!comm->sequence.status)
+	{
+		// Since a printable character was received, invalidate a partial newline
+		comm->newline.inProgress = 0;
+
+		// Add character to the line
+		comm->buffers.line.data[comm->buffers.line.length] = ch;
+		comm->buffers.line.length++;
+
+		// Echo received character (if enabled)
+		// Backspace characters will be echoed if the line buffer is not empty
+		// (printable characters will be echoed iff received outside of an escape sequence)
+		if(comm->modeBits.echoRx)
+			CommPutChar(comm, ch);
+	}
+
+	// If a newline has been received, flush the line to external RAM
+	if(comm->newline.inProgress == comm->newline.rx)
+	{
+		comm->buffers.line.data[comm->buffers.line.length] = ASCII_NUL;
+		comm->buffers.line.length++;
+		comm->newline.inProgress = 0;
+		CommFlushLineBuffer(comm);
+
+		// If enabled, echo the newline sequence
+		if(comm->modeBits.echoNewline)
+			CommPutNewline(comm);
+	}
+
+	// If the line buffer is full, flush the line to external RAM
+	if(comm->buffers.line.length == comm->buffers.line.bufferSize)
+	{
+		if(!comm->modeBits.isBinaryMode)
+		{
+			comm->buffers.line.data[comm->buffers.line.bufferSize - 1] = ASCII_NUL;
+			if(comm->modeBits.echoNewline)
+				CommPutNewline(comm);
+		}
+		CommFlushLineBuffer(comm);
 	}
 }
 
-void CommPutLine(CommPort* source, CommPort* destination)
+void CommFlushLineBuffer(CommPort* comm)
 {
-	int i;
-	for(i = 0; i < source->lineBuffer.length && source->lineBuffer.data[i] != ASCII_NUL; i++)
-	{
-		CommPutChar(destination, source->lineBuffer.data[i]);
-	}
-	CommPutNewline(destination);
+	while(_sram.isBusy)
+		continue;
+	RingBufferU8VolEnqueue(&comm->lineQueue, comm->buffers.line.length);
+	SramWrite(comm->lineQueueBaseAddress + (comm->buffers.line.bufferSize * comm->lineQueue.head),
+			&comm->buffers.line);
+	comm->buffers.line.length = 0;
+}
+
+void CommResetSequence(CommPort* comm)
+{
+	comm->statusBits.hasSequence = false;
+	comm->sequence.status = 0;
+	comm->sequence.paramCount = 0;
+	comm->sequence.terminator = 0;
+}
+
+void CommPutChar(CommPort* comm, char data)
+{
+	while(comm->buffers.tx.length == comm->buffers.tx.bufferSize)
+		continue;
+	RingBufferU8VolEnqueue(&comm->buffers.tx, data);
+	bit_set(*comm->registers->pPie, comm->registers->txieBit);
 }
 
 void CommPutString(CommPort* comm, const char* str)
@@ -136,43 +212,22 @@ void CommPutString(CommPort* comm, const char* str)
 	uint16_t length;
 	for(length = 0; str[length] != ASCII_NUL; length++)
 		CommPutChar(comm, str[length]);
-	if(length)
-		CommPutNewline(comm);
 }
 
 void CommPutNewline(CommPort* comm)
 {
-	switch(comm->txNewline)
-	{
-		case CR_ONLY:
-		{
-			CommPutChar(comm, ASCII_CR);
-			break;
-		}
-		case LF_ONLY:
-		{
-			CommPutChar(comm, ASCII_LF);
-			break;
-		}
-		case CR_LF:
-		{
-			CommPutChar(comm, ASCII_CR);
-			CommPutChar(comm, ASCII_LF);
-			break;
-		}
-		case LF_CR:
-		{
-			CommPutChar(comm, ASCII_LF);
-			CommPutChar(comm, ASCII_CR);
-			break;
-		}
-	}
+	if(comm->newline.tx & NEWLINE_CR)
+		CommPutChar(comm, ASCII_CR);
+	if(comm->newline.tx & NEWLINE_LF)
+		CommPutChar(comm, ASCII_LF);
 }
 
-void CommPutChar(CommPort* comm, char data)
+void CommPutBuffer(CommPort* comm, BufferU8* source)
 {
-	while(comm->txBuffer.length == comm->txBuffer.bufferSize)
-		continue;
-	RingBufferEnqueue(&comm->txBuffer, data);
-	bit_set(*comm->registers->pPie, comm->registers->txieBit);
+	int i;
+	for(i = 0; i < source->length && source->data[i] != ASCII_NUL; i++)
+	{
+		CommPutChar(comm, source->data[i]);
+	}
+	CommPutNewline(comm);
 }

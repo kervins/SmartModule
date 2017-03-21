@@ -31,40 +31,45 @@ void __interrupt(high_priority) isrHighPriority(void)
 
 void __interrupt(low_priority) isrLowPriority(void)
 {
+	LED = 1;
 	if(PIR3bits.SSP2IF)
 	{
-		RAM_CS = ~_sramStatus.statusBits.keepEnabled;
+		if(_sram.bytesRemaining == 0)
+		{
+			RAM_CS = 1;
+			if(_sram.currentOperation == SRAM_OP_READ)
+				_sram.targetBuffer->length = _sram.dataLength;
+			_sram.isBusy = false;
+		}
 
-		if(_sramStatus.statusBits.isCommand)
+		if(_sram.isBusy)
 		{
-			_sramStatus.statusBits.isCommand = false;
+			switch(_sram.currentOperation)
+			{
+				case SRAM_OP_READ:
+				{
+					_SramRead();
+					break;
+				}
+				case SRAM_OP_WRITE:
+				{
+					_SramWrite();
+					break;
+				}
+				case SRAM_OP_FILL:
+				{
+					_SramFill();
+					break;
+				}
+			}
 		}
-		else if(_sramStatus.statusBits.isReading)
-		{
-			_sramStatus.readAddress += _sramStatus.dataLength;
-			if(_sramStatus.readAddress >= SRAM_CAPACITY)
-				_sramStatus.readAddress = 0;
-			_sramStatus.statusBits.hasUnreadData = true;
-			_sramStatus.statusBits.isReading = false;
-		}
-		else if(_sramStatus.statusBits.isWriting)
-		{
-			_sramStatus.writeAddress += _sramStatus.dataLength;
-			if(_sramStatus.writeAddress >= SRAM_CAPACITY)
-				_sramStatus.writeAddress = 0;
-		}
-		else if(_sramStatus.statusBits.isFilling && _sramStatus.dataLength == 0)
-		{
-			_sramStatus.statusBits.isFilling = false;
-		}
-		_sramStatus.statusBits.isBusy = false;
 		PIR3bits.SSP2IF = false;
 	}
 
 	if(PIR1bits.TX1IF)
 	{
-		if(_comm1.txBuffer.length && !_comm1.statusBits.isTxPaused)
-			TXREG1 = RingBufferDequeue(&_comm1.txBuffer);
+		if(_comm1.buffers.tx.length && !_comm1.statusBits.isTxPaused)
+			TXREG1 = RingBufferU8VolDequeue(&_comm1.buffers.tx);
 		else
 			PIE1bits.TX1IE = false;
 	}
@@ -72,18 +77,18 @@ void __interrupt(low_priority) isrLowPriority(void)
 	if(PIR1bits.RC1IF)
 	{
 		char data = RCREG1;
-		if(!_comm1.statusBits.ignoreRx)
+		if(!_comm1.modeBits.ignoreRx)
 		{
 			if(data == ASCII_XOFF && _comm1.statusBits.isTxFlowControl)
 				_comm1.statusBits.isTxPaused = true;
 			else if(data == ASCII_XON && _comm1.statusBits.isTxFlowControl)
 				_comm1.statusBits.isTxPaused = false;
 			else
-				RingBufferEnqueue(&_comm1.rxBuffer, data);
+				RingBufferU8VolEnqueue(&_comm1.buffers.rx, data);
 
 			if(_comm1.statusBits.isRxFlowControl
-			   &&!_comm1.statusBits.isRxPaused
-			   && _comm1.rxBuffer.length >= XOFF_THRESHOLD)
+			&&!_comm1.statusBits.isRxPaused
+			&& _comm1.buffers.rx.length >= XOFF_THRESHOLD)
 			{
 				while(!TXSTA1bits.TRMT)
 					continue;
@@ -95,8 +100,8 @@ void __interrupt(low_priority) isrLowPriority(void)
 
 	if(PIR3bits.TX2IF)
 	{
-		if(_comm2.txBuffer.length && !_comm2.statusBits.isTxPaused)
-			TXREG2 = RingBufferDequeue(&_comm2.txBuffer);
+		if(_comm2.buffers.tx.length && !_comm2.statusBits.isTxPaused)
+			TXREG2 = RingBufferU8VolDequeue(&_comm2.buffers.tx);
 		else
 			PIE3bits.TX2IE = false;
 	}
@@ -104,18 +109,18 @@ void __interrupt(low_priority) isrLowPriority(void)
 	if(PIR3bits.RC2IF)
 	{
 		char data = RCREG2;
-		if(!_comm2.statusBits.ignoreRx)
+		if(!_comm2.modeBits.ignoreRx)
 		{
 			if(data == ASCII_XOFF && _comm2.statusBits.isTxFlowControl)
 				_comm2.statusBits.isTxPaused = true;
 			else if(data == ASCII_XON && _comm2.statusBits.isTxFlowControl)
 				_comm2.statusBits.isTxPaused = false;
 			else
-				RingBufferEnqueue(&_comm2.rxBuffer, data);
+				RingBufferU8VolEnqueue(&_comm2.buffers.rx, data);
 
 			if(_comm2.statusBits.isRxFlowControl
 			&&!_comm2.statusBits.isRxPaused
-			&& _comm2.rxBuffer.length >= XOFF_THRESHOLD)
+			&& _comm2.buffers.rx.length >= XOFF_THRESHOLD)
 			{
 				while(!TXSTA2bits.TRMT)
 					continue;
@@ -124,5 +129,6 @@ void __interrupt(low_priority) isrLowPriority(void)
 			}
 		}
 	}
+	LED = 0;
 	return;
 }

@@ -7,8 +7,6 @@
 #ifndef MAIN_H
 #define MAIN_H
 
-#include "serial_comm.h"
-
 // DEFINITIONS (OSCILLATOR)----------------------------------------------------
 #define	FOSC	48000000L	// PLL generated system clock frequency	(48 MHz)
 #define	FCY		FOSC/4		// Instruction cycle frequency			(12 MHz)
@@ -38,10 +36,13 @@
 #define WIFI_TX			PORTCbits.RX1
 
 // DEFINITIONS (DATA)----------------------------------------------------------
-#define TX_BUFFER_SIZE		64
-#define RX_BUFFER_SIZE		256
-#define LINE_BUFFER_SIZE	120
-#define SHELL_COMMAND_SIZE	120		// Shell command string buffer
+#define TX_BUFFER_SIZE			64
+#define RX_BUFFER_SIZE			256
+#define LINE_BUFFER_SIZE		RX_BUFFER_SIZE
+#define LINE_QUEUE_SIZE_COMM1	16
+#define LINE_QUEUE_ADDR_COMM1	SRAM_CAPACITY - (2 * (LINE_QUEUE_SIZE_COMM2 * LINE_BUFFER_SIZE))
+#define LINE_QUEUE_SIZE_COMM2	16
+#define LINE_QUEUE_ADDR_COMM2	SRAM_CAPACITY - (LINE_QUEUE_SIZE_COMM2 * LINE_BUFFER_SIZE)
 
 // DEFINITIONS (OTHER)---------------------------------------------------------
 #define FIRMWARE_VERSION	1.00
@@ -49,8 +50,9 @@
 
 // GLOBAL VARIABLES------------------------------------------------------------
 extern volatile uint32_t _tick;
-extern CommPort _comm1, _comm2;
-extern const CommDataRegisters _comm1Regs, _comm2Regs;
+extern volatile struct ButtonInfo _button;
+extern struct CommPort _comm1, _comm2;
+extern const struct CommDataRegisters _comm1Regs, _comm2Regs;
 
 // FUNCTION PROTOTYPES---------------------------------------------------------
 // Initialization

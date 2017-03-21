@@ -10,19 +10,19 @@
 
 // STATUS FUNCTIONS------------------------------------------------------------
 
-ButtonInfo ButtonInfoCreate(Action pressAction, Action holdAction, Action releaseAction, bool activeLogicLevel)
+void ButtonInfoCreate(volatile ButtonInfo* button,
+					  Action pressAction, Action holdAction, Action releaseAction,
+					  bool activeLogicLevel)
 {
-	ButtonInfo button;
-	button.currentLogicLevel = !activeLogicLevel;
-	button.previousLogicLevel = !activeLogicLevel;
-	button.currentState = BTN_RELEASE;
-	button.isDebouncing = false;
-	button.isUnhandled = false;
-	button.timestamp = 0;
-	button.pressAction = pressAction;
-	button.holdAction = holdAction;
-	button.releaseAction = releaseAction;
-	return button;
+	button->currentLogicLevel = !activeLogicLevel;
+	button->previousLogicLevel = !activeLogicLevel;
+	button->currentState = BTN_RELEASE;
+	button->isDebouncing = false;
+	button->isUnhandled = false;
+	button->timestamp = 0;
+	button->pressAction = pressAction;
+	button->holdAction = holdAction;
+	button->releaseAction = releaseAction;
 }
 
 void UpdateButtonState(volatile ButtonInfo* buttonInfo, bool currentLogicLevel)
