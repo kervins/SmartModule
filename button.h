@@ -37,11 +37,11 @@ typedef struct ButtonInfo
 } ButtonInfo;
 
 // FUNCTION PROTOTYPES---------------------------------------------------------
-void ButtonInfoCreate(volatile ButtonInfo* button,
+void ButtonInfoInitialize(volatile ButtonInfo* button,
 					  Action pressAction, Action holdAction, Action releaseAction,
 					  bool activeLogicLevel);
-void UpdateButtonState(volatile ButtonInfo* buttonInfo, bool currentLogicLevel);
-void CheckButton(volatile ButtonInfo *buttonInfo);
+void CheckButtonState(volatile ButtonInfo* buttonInfo, bool currentLogicLevel);
+void UpdateButton(volatile ButtonInfo *buttonInfo);
 void ButtonPress(void);
 void ButtonHold(void);
 void ButtonRelease(void);

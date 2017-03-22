@@ -30,7 +30,7 @@ volatile Sram _sram;
 CommPort _comm1, _comm2;
 const CommDataRegisters _comm1Regs = {&TXREG1, (TXSTAbits_t*) & TXSTA1, &PIE1, 4};
 const CommDataRegisters _comm2Regs = {&TXREG2, (TXSTAbits_t*) & TXSTA2, &PIE3, 4};
-WifiStatus _wifi;
+WifiInfo _wifi;
 Shell _shell;
 const uint24_t shellCommandAddress = 0;
 
@@ -40,14 +40,14 @@ void TestFunc(void);
 void main(void)
 {
 	// Initialize device
-	InitializeOscillator();
-	InitializeWDT();
-	InitializePorts();
-	InitializeTimers();
-	InitializeSpi();
-	InitializeUSART();
-	InitializeInterrupts();
-	InitializeSystem();
+	ConfigureOscillator();
+	ConfigureWDT();
+	ConfigurePorts();
+	ConfigureTimers();
+	ConfigureSPI();
+	ConfigureUSART();
+	ConfigureInterrupts();
+	ConfigureOS();
 
 	//TestFunc();
 
@@ -55,17 +55,14 @@ void main(void)
 	while(true)
 	{
 		// BUTTON------------------------------------------
-		CheckButton(&_button);
+		UpdateButton(&_button);
 
 		// USART-------------------------------------------
-		//CommPortUpdate(&_comm1);
-		CommPortUpdate(&_comm2);
+		UpdateCommPort(&_comm1);
+		UpdateCommPort(&_comm2);
 
 		// WIFI--------------------------------------------
-		/*if((_wifi.bootStatus == WIFI_BOOT_POWER_ON_RESET_HOLD) && (_tick - _wifi.eventTime > 2000))
-			WifiReset(WIFI_RESET_RELEASE);
-		else if(_wifi.bootStatus >= WIFI_BOOT_RESET_RELEASE && _wifi.bootStatus < WIFI_BOOT_COMPLETE)
-			WifiHandleBoot();*/
+		UpdateWifi();
 
 		// SHELL-------------------------------------------
 		ShellCommandProcessor();
@@ -75,7 +72,7 @@ void main(void)
 
 // INITIALIZATION--------------------------------------------------------------
 
-void InitializeOscillator(void)
+void ConfigureOscillator(void)
 {
 	OSCCONbits.SCS	= 0b00;			// Select system clock = primary clock source (INTOSC)
 	OSCCONbits.IRCF	= 0b111;		// Internal oscillator frequency select = 8MHz
@@ -85,7 +82,7 @@ void InitializeOscillator(void)
 	REFOCONbits.ROON	= false;	// Output enable
 }
 
-void InitializeWDT(void)
+void ConfigureWDT(void)
 {
 	WDTCONbits.REGSLP	= 1;	// On-chip regulator enters low-power operation when device enters Sleep mode
 	WDTCONbits.VBGOE	= 0;	// Band gap reference output is disabled
@@ -94,7 +91,7 @@ void InitializeWDT(void)
 	WDTCONbits.SWDTEN	= 0;	// Watchdog timer is off
 }
 
-void InitializePorts(void)
+void ConfigurePorts(void)
 {
 	// PORTA
 	LATA	= 0b00000000;	// Clear port latch
@@ -126,7 +123,7 @@ void InitializePorts(void)
 	PPSCONbits.IOLOCK = 1;	// Lock PPS registers
 }
 
-void InitializeTimers(void)
+void ConfigureTimers(void)
 {
 	// Timer 4
 	// (1/(FCY/prescale))*period*postscale = timer interval
@@ -136,7 +133,7 @@ void InitializeTimers(void)
 	PR4					= 0xFA;	// Timer period
 }
 
-void InitializeSpi(void)
+void ConfigureSPI(void)
 {
 	// Configure SPI2 module for master mode operation (Mode 0)
 	ODCON3bits.SPI2OD	= 0;		// Open-drain capability is disabled
@@ -155,7 +152,7 @@ void InitializeSpi(void)
 	DMACON2bits.INTLVL		= 0x0;	// Generate interrupt when DMA transfer is complete
 }
 
-void InitializeUSART(void)
+void ConfigureUSART(void)
 {
 	// USART1 (ESP8266 WiFi module)
 	SPBRGH1	= GET_BYTE(CALCULATE_BRG_16H(76800), 1);
@@ -192,12 +189,12 @@ void InitializeUSART(void)
 	RCSTA2bits.SPEN		= true;
 }
 
-void InitializeRTCC(void)
+void ConfigureRTCC(void)
 {
 	;
 }
 
-void InitializeInterrupts(void)
+void ConfigureInterrupts(void)
 {
 	// Configure external interrupt (pushbutton = active LOW on INT1 mapped to RP2)
 	INTCON2bits.INTEDG1	= 0;	// Falling edge (button)
@@ -230,7 +227,7 @@ void InitializeInterrupts(void)
 	INTCONbits.GIEL	= 1;	// Enable low-priority interrupts
 }
 
-void InitializeSystem(void)
+void ConfigureOS(void)
 {
 	// Allocate buffers
 	char txData1[TX_BUFFER_SIZE];
@@ -244,29 +241,29 @@ void InitializeSystem(void)
 	char swapData[LINE_BUFFER_SIZE];
 
 	// Initialize global variables
-	CommPortCreate(&_comm1,
-				TX_BUFFER_SIZE, RX_BUFFER_SIZE, LINE_BUFFER_SIZE,
-				&txData1, &rxData1, &lineData1,
-				LINE_QUEUE_ADDR_COMM1, LINE_QUEUE_SIZE_COMM1, &lineQueueData1,
-				NEWLINE_CRLF, NEWLINE_CRLF,
-				&_comm1Regs,
-				false, false);
-	CommPortCreate(&_comm2,
-				TX_BUFFER_SIZE, RX_BUFFER_SIZE, LINE_BUFFER_SIZE,
-				&txData2, &rxData2, &lineData2,
-				LINE_QUEUE_ADDR_COMM2, LINE_QUEUE_SIZE_COMM2, &lineQueueData2,
-				NEWLINE_CRLF, NEWLINE_CR,
-				&_comm2Regs,
-				true, true);
-	ButtonInfoCreate(&_button, ButtonPress, ButtonHold, ButtonRelease, 0);
-	// TODO: Comm actions used to be defined... here
+	CommPortInitialize(&_comm1,
+					TX_BUFFER_SIZE, RX_BUFFER_SIZE, LINE_BUFFER_SIZE,
+					&txData1, &rxData1, &lineData1,
+					LINE_QUEUE_ADDR_COMM1, LINE_QUEUE_SIZE_COMM1, &lineQueueData1,
+					NEWLINE_CRLF, NEWLINE_CRLF,
+					&_comm1Regs,
+					false, false);
+	CommPortInitialize(&_comm2,
+					TX_BUFFER_SIZE, RX_BUFFER_SIZE, LINE_BUFFER_SIZE,
+					&txData2, &rxData2, &lineData2,
+					LINE_QUEUE_ADDR_COMM2, LINE_QUEUE_SIZE_COMM2, &lineQueueData2,
+					NEWLINE_CRLF, NEWLINE_CR,
+					&_comm2Regs,
+					true, true);
+	ButtonInfoInitialize(&_button, ButtonPress, ButtonHold, ButtonRelease, 0);
 	SramStatusInitialize();
 	ShellInitialize(&_comm2, LINE_BUFFER_SIZE, swapData);
 	// TODO: Shell needs to print initial command line... here
 
 	// Hold Wifi in reset
-	WifiReset(WIFI_RESET_HOLD);
-	_wifi.bootStatus = WIFI_BOOT_POWER_ON_RESET_HOLD;
+	_wifi.statusBits.resetMode = WIFI_RESET_HOLD;
+	WifiReset();
+	_wifi.statusBits.boot = WIFI_BOOT_POWER_ON_RESET_HOLD;
 
 	// Set SRAM mode: HOLD function disabled, burst write
 	// Blank entire SRAM array (fill with 0xFF)
@@ -275,7 +272,7 @@ void InitializeSystem(void)
 	mode.holdDisabled = true;
 	mode.mode = SRAM_MODE_BURST;
 	SramSetMode(mode);
-	while(_sram.isBusy)
+	while(_sram.busy)
 		continue;
 	SramFill(0x000000, SRAM_CAPACITY, 0xFF);
 
@@ -292,7 +289,10 @@ void TestFunc(void)
 
 void ButtonPress(void)
 {
-	;
+	_shell.result.values[0] = 0x2EF03;
+	_shell.result.values[1] = 0;
+	_shell.result.values[2] = 0x20000;
+	_shell.result.lastError = SHELL_ERROR_ADDRESS_RANGE;
 }
 
 void ButtonHold(void)

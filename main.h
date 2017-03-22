@@ -56,15 +56,15 @@ extern const struct CommDataRegisters _comm1Regs, _comm2Regs;
 
 // FUNCTION PROTOTYPES---------------------------------------------------------
 // Initialization
-void InitializeOscillator(void);
-void InitializeWDT(void);
-void InitializePorts(void);
-void InitializeTimers(void);
-void InitializeSpi(void);
-void InitializeUSART(void);
-void InitializeRTCC(void);
-void InitializeInterrupts(void);
-void InitializeSystem(void);
+void ConfigureOscillator(void);
+void ConfigureWDT(void);
+void ConfigurePorts(void);
+void ConfigureTimers(void);
+void ConfigureSPI(void);
+void ConfigureUSART(void);
+void ConfigureRTCC(void);
+void ConfigureInterrupts(void);
+void ConfigureOS(void);
 // Button Actions
 void ButtonPress(void);
 void ButtonHold(void);

@@ -14,47 +14,62 @@
 
 // FUNCTIONS-------------------------------------------------------------------
 
-void WifiReset(WifiResetTypes resetType)
+void UpdateWifi(void)
+{
+	if((_wifi.statusBits.boot == WIFI_BOOT_POWER_ON_RESET_HOLD) && (_tick - _wifi.eventTime > 2000))
+	{
+		_wifi.statusBits.resetMode = WIFI_RESET_RELEASE;
+		WifiReset();
+	}
+	else if(_wifi.statusBits.boot >= WIFI_BOOT_RESET_RELEASE && _wifi.statusBits.boot < WIFI_BOOT_COMPLETE)
+		WifiHandleBoot();
+}
+
+void WifiReset(void)
 {
 	WIFI_RST = 0;
-	if(resetType == WIFI_RESET_HOLD || resetType == WIFI_RESET_RESTART)
+	if(_wifi.statusBits.resetMode == WIFI_RESET_HOLD || _wifi.statusBits.resetMode == WIFI_RESET_RESTART)
 	{
 		RCSTA1bits.SPEN	= false;
 		SPBRGH1	= GET_BYTE(CALCULATE_BRG_16H(76800), 1);
 		SPBRG1	= GET_BYTE(CALCULATE_BRG_16H(76800), 0);
-		_wifi.bootStatus = WIFI_BOOT_RESET_HOLD;
+		_wifi.statusBits.boot = WIFI_BOOT_RESET_HOLD;
 		return;
 	}
 
 	RCSTA1bits.SPEN	= true;
 	_comm1.modeBits.ignoreRx = true;
-	_wifi.bootStatus = WIFI_BOOT_RESET_RELEASE;
+	_comm1.modeBits.useExternalBuffer = false;
+	_wifi.statusBits.boot = WIFI_BOOT_RESET_RELEASE;
 	_wifi.eventTime = _tick;
 	WIFI_RST = 1;
 }
 
 void WifiHandleBoot(void)
 {
-	if(_wifi.bootStatus == WIFI_BOOT_RESET_RELEASE && (_tick - _wifi.eventTime > 100))
+	if(_wifi.statusBits.boot == WIFI_BOOT_RESET_RELEASE && (_tick - _wifi.eventTime > 100))
 	{
-		_wifi.bootStatus = WIFI_BOOT_SELFCHECK;
+		_wifi.statusBits.boot = WIFI_BOOT_SELFCHECK;
 		_wifi.eventTime = _tick;
 	}
-	else if(_wifi.bootStatus == WIFI_BOOT_SELFCHECK)
+	else if(_wifi.statusBits.boot == WIFI_BOOT_SELFCHECK)
 	{
 		RCSTA1bits.SPEN	= false;
 		SPBRGH1	= GET_BYTE(CALCULATE_BRG_16H(115200), 1);
 		SPBRG1	= GET_BYTE(CALCULATE_BRG_16H(115200), 0);
 		RCSTA1bits.SPEN	= true;
 		_comm1.modeBits.ignoreRx = false;
-		_wifi.bootStatus = WIFI_BOOT_INITIALIZING;
+		_wifi.statusBits.boot = WIFI_BOOT_INITIALIZING;
 		_wifi.eventTime = _tick;
 	}
-	else if(_wifi.bootStatus == WIFI_BOOT_INITIALIZING && _comm1.lineQueue.length)
+	else if(_wifi.statusBits.boot == WIFI_BOOT_INITIALIZING && _comm1.statusBits.hasLine)
 	{
-		// TODO: Lines are being manipulated out of order (the lineActions...)
 		if(BufferContains(&_comm1.buffers.line, "ready"))
-			_wifi.bootStatus = WIFI_BOOT_COMPLETE;
-		_comm1.lineQueue.length = 0;
+		{
+			_wifi.statusBits.boot = WIFI_BOOT_COMPLETE;
+			_comm1.modeBits.useExternalBuffer = true;
+		}
+		_comm1.buffers.line.length = 0;
+		_comm1.statusBits.hasLine = false;
 	}
 }

@@ -40,6 +40,13 @@ typedef struct CommDataRegisters
 	uint8_t const txieBit;
 } CommDataRegisters;
 
+typedef struct ExternalLineQueue
+{
+	uint24_t baseAddress;
+	uint16_t blockSize;
+	volatile RingBufferU8 lineQueue;
+} ExternalLineQueue;
+
 typedef struct CommPort
 {
 
@@ -52,8 +59,9 @@ typedef struct CommPort
 			unsigned isRxFlowControl : 1;
 			unsigned isTxPaused : 1;
 			unsigned isRxPaused : 1;
+			unsigned hasLine : 1;
 			unsigned hasSequence : 1;
-			unsigned : 3;
+			unsigned : 2;
 		} statusBits;
 		uint8_t status;
 	} ;
@@ -66,9 +74,10 @@ typedef struct CommPort
 			unsigned echoRx : 1;
 			unsigned echoNewline : 1;
 			unsigned echoSequence : 1;
+			unsigned useExternalBuffer : 1;
 			unsigned ignoreRx : 1;
 			unsigned isBinaryMode : 1;
-			unsigned : 5;
+			unsigned : 2;
 		} modeBits;
 		uint8_t mode;
 	} ;
@@ -105,20 +114,19 @@ typedef struct CommPort
 		BufferU8 line;
 	} buffers;
 
-	uint24_t lineQueueBaseAddress;
-	volatile RingBufferU8 lineQueue;
+	ExternalLineQueue external;
 	const CommDataRegisters* registers;
 } CommPort;
 
 // FUNCTION PROTOTYPES---------------------------------------------------------
-void CommPortCreate(CommPort* comm,
-					uint16_t txBufferSize, uint16_t rxBufferSize, uint16_t lineBufferSize,
-					char* txData, char* rxData, char* lineData,
-					uint24_t lineQueueBaseAddress, uint16_t lineQueueSize, uint8_t* lineQueueData,
-					NewlineFlags txNewline, NewlineFlags rxNewline,
-					const CommDataRegisters* registers,
-					bool enableFlowControl, bool enableEcho);
-void CommPortUpdate(CommPort* comm);
+void CommPortInitialize(CommPort* comm,
+						uint16_t txBufferSize, uint16_t rxBufferSize, uint16_t lineBufferSize,
+						char* txData, char* rxData, char* lineData,
+						uint24_t lineQueueBaseAddress, uint16_t lineQueueSize, uint8_t* lineQueueData,
+						NewlineFlags txNewline, NewlineFlags rxNewline,
+						const CommDataRegisters* registers,
+						bool enableFlowControl, bool enableEcho);
+void UpdateCommPort(CommPort* comm);
 void CommFlushLineBuffer(CommPort* comm);
 void CommResetSequence(CommPort* comm);
 void CommPutChar(CommPort* comm, char data);

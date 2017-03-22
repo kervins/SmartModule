@@ -74,7 +74,7 @@ typedef struct Sram
 
 		struct
 		{
-			unsigned isBusy : 1;
+			unsigned busy : 1;
 			unsigned currentOperation : 3;
 			unsigned : 4;
 		} ;

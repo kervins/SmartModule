@@ -24,7 +24,7 @@ void BufferU16Create(BufferU16* buffer, uint16_t bufferSize, uint16_t* bufferDat
 
 // RINGBUFFER FUNCTIONS (VOLATILE)---------------------------------------------
 
-void RingBufferU8VolCreate(volatile RingBufferU8* buffer, uint16_t bufferSize, char* data)
+void RingBufferCreate(volatile RingBufferU8* buffer, uint16_t bufferSize, char* data)
 {
 	buffer->bufferSize = bufferSize;
 	buffer->length = 0;
@@ -33,7 +33,7 @@ void RingBufferU8VolCreate(volatile RingBufferU8* buffer, uint16_t bufferSize, c
 	buffer->data = data;
 }
 
-void RingBufferU8VolEnqueue(volatile RingBufferU8* buffer, char data)
+void RingBufferEnqueue(volatile RingBufferU8* buffer, char data)
 {
 	if(buffer->length == buffer->bufferSize)	// Overflow hack
 		return;
@@ -42,7 +42,7 @@ void RingBufferU8VolEnqueue(volatile RingBufferU8* buffer, char data)
 	buffer->length++;
 }
 
-char RingBufferU8VolDequeue(volatile RingBufferU8* buffer)
+char RingBufferDequeue(volatile RingBufferU8* buffer)
 {
 	// NOTE: Does not check if buffer is empty.
 	// It is essential that this be done somewhere, but was excluded here for performance reasons.
@@ -52,12 +52,12 @@ char RingBufferU8VolDequeue(volatile RingBufferU8* buffer)
 	return data;
 }
 
-char RingBufferU8VolDequeuePeek(volatile RingBufferU8* buffer)
+char RingBufferDequeuePeek(volatile RingBufferU8* buffer)
 {
 	return buffer->data[buffer->tail];
 }
 
-void RingBufferU8VolRemoveLast(volatile RingBufferU8* buffer, uint16_t count)
+void RingBufferRemoveLast(volatile RingBufferU8* buffer, uint16_t count)
 {
 	if(buffer->length == 0)
 		return;

@@ -9,30 +9,38 @@
 
 #include <stdint.h>
 
+// DEFINITIONS-----------------------------------------------------------------
+// Boot states
+#define WIFI_BOOT_POWER_ON_RESET_HOLD	0
+#define WIFI_BOOT_RESET_HOLD			1
+#define WIFI_BOOT_RESET_RELEASE			2
+#define WIFI_BOOT_SELFCHECK				3
+#define WIFI_BOOT_INITIALIZING			4
+#define WIFI_BOOT_COMPLETE				5
+// Reset modes
+#define WIFI_RESET_HOLD		0
+#define WIFI_RESET_RELEASE	1
+#define WIFI_RESET_RESTART	2
+
 // TYPE DEFINITIONS------------------------------------------------------------
-
-typedef enum
-{
-	WIFI_BOOT_POWER_ON_RESET_HOLD	= 0,
-	WIFI_BOOT_RESET_HOLD			= 1,
-	WIFI_BOOT_RESET_RELEASE			= 2,
-	WIFI_BOOT_SELFCHECK				= 3,
-	WIFI_BOOT_INITIALIZING			= 4,
-	WIFI_BOOT_COMPLETE				= 5
-} WifiBootStates;
-
-typedef enum
-{
-	WIFI_RESET_HOLD		= 0,
-	WIFI_RESET_RELEASE	= 1,
-	WIFI_RESET_RESTART	= 2
-} WifiResetTypes;
 
 typedef struct
 {
-	WifiBootStates bootStatus;
+
+	union
+	{
+
+		struct
+		{
+			unsigned ready : 1;
+			unsigned boot : 3;
+			unsigned resetMode : 2;
+			unsigned : 2;
+		} statusBits;
+		uint8_t status;
+	} ;
 	uint32_t eventTime;
-} WifiStatus;
+} WifiInfo;
 
 // TYPE DEFINITIONS (ESP8266 COMMAND PARAMETERS)-------------------------------
 
@@ -115,10 +123,11 @@ static const char* at_ping				= "AT+PING";			// Ping function
 static const char* at_cipdinfo			= "AT+CIPDINFO";		// Show remote IP and remote port
 
 // GLOBAL VARIABLES------------------------------------------------------------
-extern WifiStatus _wifi;
+extern WifiInfo _wifi;
 
 // FUNCTION PROTOTYPES---------------------------------------------------------
-void WifiReset(WifiResetTypes resetType);
+void WifiReset(void);
 void WifiHandleBoot(void);
+void UpdateWifi(void);
 
 #endif

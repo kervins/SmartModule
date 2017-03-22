@@ -23,7 +23,7 @@ void __interrupt(high_priority) isrHighPriority(void)
 	}
 	else if(INTCON3bits.INT1IF)
 	{
-		UpdateButtonState(&_button, BUTTON);
+		CheckButtonState(&_button, BUTTON);
 		INTCON3bits.INT1IF = false;
 	}
 	return;
@@ -39,10 +39,10 @@ void __interrupt(low_priority) isrLowPriority(void)
 			RAM_CS = 1;
 			if(_sram.currentOperation == SRAM_OP_READ)
 				_sram.targetBuffer->length = _sram.dataLength;
-			_sram.isBusy = false;
+			_sram.busy = false;
 		}
 
-		if(_sram.isBusy)
+		if(_sram.busy)
 		{
 			switch(_sram.currentOperation)
 			{
@@ -69,7 +69,7 @@ void __interrupt(low_priority) isrLowPriority(void)
 	if(PIR1bits.TX1IF)
 	{
 		if(_comm1.buffers.tx.length && !_comm1.statusBits.isTxPaused)
-			TXREG1 = RingBufferU8VolDequeue(&_comm1.buffers.tx);
+			TXREG1 = RingBufferDequeue(&_comm1.buffers.tx);
 		else
 			PIE1bits.TX1IE = false;
 	}
@@ -84,7 +84,7 @@ void __interrupt(low_priority) isrLowPriority(void)
 			else if(data == ASCII_XON && _comm1.statusBits.isTxFlowControl)
 				_comm1.statusBits.isTxPaused = false;
 			else
-				RingBufferU8VolEnqueue(&_comm1.buffers.rx, data);
+				RingBufferEnqueue(&_comm1.buffers.rx, data);
 
 			if(_comm1.statusBits.isRxFlowControl
 			&&!_comm1.statusBits.isRxPaused
@@ -101,7 +101,7 @@ void __interrupt(low_priority) isrLowPriority(void)
 	if(PIR3bits.TX2IF)
 	{
 		if(_comm2.buffers.tx.length && !_comm2.statusBits.isTxPaused)
-			TXREG2 = RingBufferU8VolDequeue(&_comm2.buffers.tx);
+			TXREG2 = RingBufferDequeue(&_comm2.buffers.tx);
 		else
 			PIE3bits.TX2IE = false;
 	}
@@ -116,7 +116,7 @@ void __interrupt(low_priority) isrLowPriority(void)
 			else if(data == ASCII_XON && _comm2.statusBits.isTxFlowControl)
 				_comm2.statusBits.isTxPaused = false;
 			else
-				RingBufferU8VolEnqueue(&_comm2.buffers.rx, data);
+				RingBufferEnqueue(&_comm2.buffers.rx, data);
 
 			if(_comm2.statusBits.isRxFlowControl
 			&&!_comm2.statusBits.isRxPaused

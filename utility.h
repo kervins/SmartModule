@@ -188,11 +188,11 @@ typedef struct FileDescriptor
 void BufferU8Create(BufferU8* buffer, uint16_t bufferSize, char* bufferData);
 void BufferU16Create(BufferU16* buffer, uint16_t bufferSize, uint16_t* bufferData);
 // RingBuffer (volatile)
-void RingBufferU8VolCreate(volatile RingBufferU8* buffer, uint16_t bufferSize, char* data);
-void RingBufferU8VolEnqueue(volatile RingBufferU8* buffer, char data);
-char RingBufferU8VolDequeue(volatile RingBufferU8* buffer);
-char RingBufferU8VolDequeuePeek(volatile RingBufferU8* buffer);
-void RingBufferU8VolRemoveLast(volatile RingBufferU8* buffer, uint16_t count);
+void RingBufferCreate(volatile RingBufferU8* buffer, uint16_t bufferSize, char* data);
+void RingBufferEnqueue(volatile RingBufferU8* buffer, char data);
+char RingBufferDequeue(volatile RingBufferU8* buffer);
+char RingBufferDequeuePeek(volatile RingBufferU8* buffer);
+void RingBufferRemoveLast(volatile RingBufferU8* buffer, uint16_t count);
 // Parsing Functions
 bool BufferEquals(BufferU8* line, const char* str);
 bool BufferContains(BufferU8* line, const char* str);

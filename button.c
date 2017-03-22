@@ -10,7 +10,7 @@
 
 // STATUS FUNCTIONS------------------------------------------------------------
 
-void ButtonInfoCreate(volatile ButtonInfo* button,
+void ButtonInfoInitialize(volatile ButtonInfo* button,
 					  Action pressAction, Action holdAction, Action releaseAction,
 					  bool activeLogicLevel)
 {
@@ -25,7 +25,7 @@ void ButtonInfoCreate(volatile ButtonInfo* button,
 	button->releaseAction = releaseAction;
 }
 
-void UpdateButtonState(volatile ButtonInfo* buttonInfo, bool currentLogicLevel)
+void CheckButtonState(volatile ButtonInfo* buttonInfo, bool currentLogicLevel)
 {
 	if(!buttonInfo->isDebouncing)
 	{
@@ -50,7 +50,7 @@ void UpdateButtonState(volatile ButtonInfo* buttonInfo, bool currentLogicLevel)
 	}
 }
 
-void CheckButton(volatile ButtonInfo *buttonInfo)
+void UpdateButton(volatile ButtonInfo *buttonInfo)
 {
 	if(!buttonInfo->isUnhandled && buttonInfo->currentState == BTN_PRESS
 	&& !buttonInfo->currentLogicLevel

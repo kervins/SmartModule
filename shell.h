@@ -12,6 +12,14 @@
 
 // DEFINITIONS-----------------------------------------------------------------
 #define SHELL_MAX_TASK_COUNT	16
+#define SHELL_MAX_RESULT_VALUES	4
+// Warnings
+#define SHELL_WARNING_DATA_TRUNCATED	1
+// Errors
+#define SHELL_ERROR_SRAM_BUSY			1
+#define SHELL_ERROR_ZERO_LENGTH			2
+#define SHELL_ERROR_ADDRESS_RANGE		3
+#define SHELL_ERROR_LINE_QUEUE_EMPTY			4
 
 // TYPE DEFINITIONS------------------------------------------------------------
 
@@ -31,19 +39,19 @@ typedef struct Shell
 
 		struct
 		{
-			unsigned : 8;
+			unsigned busy : 1;
+			unsigned : 7;
 		} statusBits;
 		uint8_t status;
 	} ;
 
 	struct
 	{
-		uint8_t length;
-		uint8_t head;
-		uint8_t tail;
-		Task tasks[SHELL_MAX_TASK_COUNT];
-	} taskQueue;
-	Task* currentTask;
+		uint8_t lastWarning;
+		uint8_t lastError;
+		uint32_t values[SHELL_MAX_RESULT_VALUES];
+	} result;
+
 	CommPort* terminal;
 	BufferU8 swapBuffer;
 } Shell;
@@ -57,5 +65,8 @@ extern const uint24_t shellCommandAddress;
 void ShellCommandProcessor(void);
 // Shell Management Functions
 void ShellInitialize(CommPort* terminalComm, uint16_t swapBufferSize, char* swapBufferData);
+void ShellDequeueLine(ExternalLineQueue* source, BufferU8* destination);
+void ShellPrintLastWarning(void);
+void ShellPrintLastError(void);
 
 #endif

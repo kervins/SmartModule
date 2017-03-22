@@ -14,10 +14,10 @@
 
 void SramSetMode(SramMode mode)
 {
-	if(_sram.isBusy)
+	if(_sram.busy)
 		return;
 
-	_sram.isBusy = true;
+	_sram.busy = true;
 	_sram.currentOperation = SRAM_OP_COMMAND;
 	_sram.startTime = _tick;
 	_sram.dataLength = 0;
@@ -37,7 +37,7 @@ void SramSetMode(SramMode mode)
 
 void SramRead(uint24_t address, uint24_t length, BufferU8* destination)
 {
-	if(_sram.isBusy)
+	if(_sram.busy)
 		return;
 	if(length == 0 || address >= SRAM_CAPACITY)
 		return;
@@ -46,7 +46,7 @@ void SramRead(uint24_t address, uint24_t length, BufferU8* destination)
 	if(address + length >= SRAM_CAPACITY)
 		length = SRAM_CAPACITY - address;
 
-	_sram.isBusy = true;
+	_sram.busy = true;
 	_sram.currentOperation = SRAM_OP_READ;
 	_sram.startTime = _tick;
 	_sram.readAddress = address;
@@ -60,12 +60,12 @@ void SramRead(uint24_t address, uint24_t length, BufferU8* destination)
 
 void SramWrite(uint24_t address, BufferU8* source)
 {
-	if(_sram.isBusy)
+	if(_sram.busy)
 		return;
 	if(source->length == 0 || address + source->length >= SRAM_CAPACITY)
 		return;
 
-	_sram.isBusy = true;
+	_sram.busy = true;
 	_sram.currentOperation = SRAM_OP_WRITE;
 	_sram.startTime = _tick;
 	_sram.writeAddress = address;
@@ -79,14 +79,14 @@ void SramWrite(uint24_t address, BufferU8* source)
 
 void SramFill(uint24_t address, uint24_t length, uint8_t value)
 {
-	if(_sram.isBusy)
+	if(_sram.busy)
 		return;
 	if(length == 0 || address >= SRAM_CAPACITY)
 		return;
 	if(address + length >= SRAM_CAPACITY)
 		length = SRAM_CAPACITY - address;
 
-	_sram.isBusy = true;
+	_sram.busy = true;
 	_sram.currentOperation = SRAM_OP_FILL;
 	_sram.startTime = _tick;
 	_sram.writeAddress = address;

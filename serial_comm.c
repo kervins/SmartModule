@@ -15,31 +15,33 @@
 
 // COMM PORT FUNCTIONS---------------------------------------------------------
 
-void CommPortCreate(CommPort* comm,
-					uint16_t txBufferSize, uint16_t rxBufferSize, uint16_t lineBufferSize,
-					char* txData, char* rxData, char* lineData,
-					uint24_t lineQueueBaseAddress, uint16_t lineQueueSize, uint8_t* lineQueueData,
-					NewlineFlags txNewline, NewlineFlags rxNewline,
-					const CommDataRegisters* registers,
-					bool enableFlowControl, bool enableEcho)
+void CommPortInitialize(CommPort* comm,
+						uint16_t txBufferSize, uint16_t rxBufferSize, uint16_t lineBufferSize,
+						char* txData, char* rxData, char* lineData,
+						uint24_t lineQueueBaseAddress, uint16_t lineQueueSize, uint8_t* lineQueueData,
+						NewlineFlags txNewline, NewlineFlags rxNewline,
+						const CommDataRegisters* registers,
+						bool enableFlowControl, bool enableEcho)
 {
 	comm->status = enableFlowControl ? 0x3 : 0x0;	// Enable TX and RX flow control
 	comm->mode = enableEcho ? 0x7 : 0x0;			// Enable character, newline, and sequence echo
+	comm->modeBits.useExternalBuffer = true;
 	comm->newline.tx = txNewline;
 	comm->newline.rx = rxNewline;
 	comm->newline.inProgress = 0;
 	comm->sequence.status = 0;
 	comm->sequence.paramCount = 0;
 	comm->sequence.terminator = 0;
-	comm->lineQueueBaseAddress = lineQueueBaseAddress;
-	RingBufferU8VolCreate(&comm->lineQueue, lineQueueSize, lineQueueData);
-	RingBufferU8VolCreate(&comm->buffers.tx, txBufferSize, txData);
-	RingBufferU8VolCreate(&comm->buffers.rx, rxBufferSize, rxData);
+	comm->external.baseAddress = lineQueueBaseAddress;
+	comm->external.blockSize = lineBufferSize;
+	RingBufferCreate(&comm->external.lineQueue, lineQueueSize, lineQueueData);
+	RingBufferCreate(&comm->buffers.tx, txBufferSize, txData);
+	RingBufferCreate(&comm->buffers.rx, rxBufferSize, rxData);
 	BufferU8Create(&comm->buffers.line, lineBufferSize, lineData);
 	comm->registers = registers;
 }
 
-void CommPortUpdate(CommPort* comm)
+void UpdateCommPort(CommPort* comm)
 {
 	// Manage RX flow control (This block of code sends XON, whereas XOFF is sent in the ISR for USART RX)
 	if(comm->statusBits.isRxFlowControl
@@ -54,7 +56,8 @@ void CommPortUpdate(CommPort* comm)
 
 	// Only continue if all events have been handled
 	if(comm->statusBits.hasSequence
-	|| comm->lineQueue.length == comm->lineQueue.bufferSize)
+	|| comm->external.lineQueue.length == comm->external.lineQueue.bufferSize
+	|| (!comm->modeBits.useExternalBuffer && comm->statusBits.hasLine))
 		return;
 
 	// Only continue if the RX buffer is not empty
@@ -62,7 +65,7 @@ void CommPortUpdate(CommPort* comm)
 		return;
 
 	// Retrieve the next character from the RX buffer
-	char ch = RingBufferU8VolDequeue(&comm->buffers.rx);
+	char ch = RingBufferDequeue(&comm->buffers.rx);
 
 	// If an escape sequence has been initiated,
 	// retrieve parameters until terminating character is received
@@ -155,44 +158,54 @@ void CommPortUpdate(CommPort* comm)
 			CommPutChar(comm, ch);
 	}
 
-	// If a newline has been received, flush the line to external RAM
-	if(comm->newline.inProgress == comm->newline.rx)
-	{
-		comm->buffers.line.data[comm->buffers.line.length] = ASCII_NUL;
-		comm->buffers.line.length++;
-		comm->newline.inProgress = 0;
-		CommFlushLineBuffer(comm);
-
-		// If enabled, echo the newline sequence
-		if(comm->modeBits.echoNewline)
-			CommPutNewline(comm);
-	}
-
-	// If the line buffer is full, flush the line to external RAM
+	// If the line buffer is full, flush the line to external RAM (or set hasLine flag if not using external RAM)
 	if(comm->buffers.line.length == comm->buffers.line.bufferSize)
 	{
 		if(!comm->modeBits.isBinaryMode)
 		{
 			comm->buffers.line.data[comm->buffers.line.bufferSize - 1] = ASCII_NUL;
+
 			if(comm->modeBits.echoNewline)
 				CommPutNewline(comm);
 		}
-		CommFlushLineBuffer(comm);
+
+		if(comm->modeBits.useExternalBuffer)
+			CommFlushLineBuffer(comm);
+		else
+			comm->statusBits.hasLine = true;
+	}
+
+	// If a newline has been received, flush the line to external RAM (or set hasLine flag if not using external RAM)
+	if(comm->newline.inProgress == comm->newline.rx)
+	{
+		comm->buffers.line.data[comm->buffers.line.length] = ASCII_NUL;
+		comm->buffers.line.length++;
+		comm->newline.inProgress = 0;
+		if(comm->modeBits.useExternalBuffer)
+			CommFlushLineBuffer(comm);
+		else
+			comm->statusBits.hasLine = true;
+
+		// If enabled, echo the newline sequence
+		if(comm->modeBits.echoNewline)
+			CommPutNewline(comm);
 	}
 }
 
 void CommFlushLineBuffer(CommPort* comm)
 {
-	while(_sram.isBusy)
+
+	while(_sram.busy)
 		continue;
-	RingBufferU8VolEnqueue(&comm->lineQueue, comm->buffers.line.length);
-	SramWrite(comm->lineQueueBaseAddress + (comm->buffers.line.bufferSize * comm->lineQueue.head),
+	RingBufferEnqueue(&comm->external.lineQueue, comm->buffers.line.length);
+	SramWrite(comm->external.baseAddress + (comm->external.blockSize * comm->external.lineQueue.head),
 			&comm->buffers.line);
 	comm->buffers.line.length = 0;
 }
 
 void CommResetSequence(CommPort* comm)
 {
+
 	comm->statusBits.hasSequence = false;
 	comm->sequence.status = 0;
 	comm->sequence.paramCount = 0;
@@ -201,15 +214,17 @@ void CommResetSequence(CommPort* comm)
 
 void CommPutChar(CommPort* comm, char data)
 {
+
 	while(comm->buffers.tx.length == comm->buffers.tx.bufferSize)
 		continue;
-	RingBufferU8VolEnqueue(&comm->buffers.tx, data);
+	RingBufferEnqueue(&comm->buffers.tx, data);
 	bit_set(*comm->registers->pPie, comm->registers->txieBit);
 }
 
 void CommPutString(CommPort* comm, const char* str)
 {
 	uint16_t length;
+
 	for(length = 0; str[length] != ASCII_NUL; length++)
 		CommPutChar(comm, str[length]);
 }
@@ -218,6 +233,7 @@ void CommPutNewline(CommPort* comm)
 {
 	if(comm->newline.tx & NEWLINE_CR)
 		CommPutChar(comm, ASCII_CR);
+
 	if(comm->newline.tx & NEWLINE_LF)
 		CommPutChar(comm, ASCII_LF);
 }
