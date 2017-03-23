@@ -16,6 +16,9 @@
 
 void __interrupt(high_priority) isrHighPriority(void)
 {
+#ifdef DEV_MODE_DEBUG
+	DEBUG0 = 1;
+#endif
 	if(PIR3bits.TMR4IF)
 	{
 		_tick++;
@@ -26,12 +29,17 @@ void __interrupt(high_priority) isrHighPriority(void)
 		CheckButtonState(&_button, BUTTON);
 		INTCON3bits.INT1IF = false;
 	}
+#ifdef DEV_MODE_DEBUG
+	DEBUG0 = 0;
+#endif
 	return;
 }
 
 void __interrupt(low_priority) isrLowPriority(void)
 {
-	LED = 1;
+#ifdef DEV_MODE_DEBUG
+	DEBUG1 = 1;
+#endif
 	if(PIR3bits.SSP2IF)
 	{
 		if(_sram.bytesRemaining == 0)
@@ -129,6 +137,8 @@ void __interrupt(low_priority) isrLowPriority(void)
 			}
 		}
 	}
-	LED = 0;
+#ifdef DEV_MODE_DEBUG
+	DEBUG1 = 1;
+#endif
 	return;
 }

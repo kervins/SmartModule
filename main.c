@@ -35,7 +35,6 @@ Shell _shell;
 const uint24_t shellCommandAddress = 0;
 
 // PROGRAM ENTRY---------------------------------------------------------------
-void TestFunc(void);
 
 void main(void)
 {
@@ -49,11 +48,12 @@ void main(void)
 	ConfigureInterrupts();
 	ConfigureOS();
 
-	//TestFunc();
-
 	// Main program loop
 	while(true)
 	{
+#ifdef DEV_MODE_DEBUG
+		DEBUG2 = ~DEBUG2;
+#endif
 		// BUTTON------------------------------------------
 		UpdateButton(&_button);
 
@@ -95,8 +95,13 @@ void ConfigurePorts(void)
 {
 	// PORTA
 	LATA	= 0b00000000;	// Clear port latch
+#ifdef DEV_MODE_DEBUG
+	ANCON0	= 0b00000000;	// Disable analog inputs AN0-AN3
+	TRISA	= 0b00110000;	// Output PORTA<7:6,3:0>, Input PORTA<5:4>
+#else
 	ANCON0	= 0b11110000;	// Enable analog inputs AN0-AN3
 	TRISA	= 0b00111111;	// Output PORTA<7:6>, Input PORTA<5:0>
+#endif
 
 	// PORTB
 	INTCON2bits.RBPU = 1;	// Disable weak pull-ups
@@ -255,6 +260,7 @@ void ConfigureOS(void)
 					NEWLINE_CRLF, NEWLINE_CR,
 					&_comm2Regs,
 					true, true);
+	_comm1.modeBits.echoNewline = false;
 	ButtonInfoInitialize(&_button, ButtonPress, ButtonHold, ButtonRelease, 0);
 	SramStatusInitialize();
 	ShellInitialize(&_comm2, LINE_BUFFER_SIZE, swapData);
@@ -282,17 +288,9 @@ void ConfigureOS(void)
 
 // BUTTON ACTIONS--------------------------------------------------------------
 
-void TestFunc(void)
-{
-	;
-}
-
 void ButtonPress(void)
 {
-	_shell.result.values[0] = 0x2EF03;
-	_shell.result.values[1] = 0;
-	_shell.result.values[2] = 0x20000;
-	_shell.result.lastError = SHELL_ERROR_ADDRESS_RANGE;
+	;
 }
 
 void ButtonHold(void)
@@ -304,3 +302,12 @@ void ButtonRelease(void)
 {
 	;
 }
+
+// DEBUG FUNCTIONS-------------------------------------------------------------
+#ifdef DEV_MODE_DEBUG
+
+void TestFunc(void)
+{
+	;
+}
+#endif

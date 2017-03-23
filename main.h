@@ -7,6 +7,9 @@
 #ifndef MAIN_H
 #define MAIN_H
 
+// DEVELOPMENT MODE DEFINITION-------------------------------------------------
+#define	DEV_MODE_DEBUG			// Compile debugging definitions and routines
+
 // DEFINITIONS (OSCILLATOR)----------------------------------------------------
 #define	FOSC	48000000L	// PLL generated system clock frequency	(48 MHz)
 #define	FCY		FOSC/4		// Instruction cycle frequency			(12 MHz)
@@ -34,6 +37,10 @@
 #define PC_TX			PORTCbits.RP12
 #define WIFI_RX			PORTCbits.TX1
 #define WIFI_TX			PORTCbits.RX1
+#define DEBUG0			LATAbits.LATA0
+#define DEBUG1			LATAbits.LATA1
+#define DEBUG2			LATAbits.LATA2
+#define DEBUG3			LATAbits.LATA3
 
 // DEFINITIONS (DATA)----------------------------------------------------------
 #define TX_BUFFER_SIZE			64
@@ -69,5 +76,9 @@ void ConfigureOS(void);
 void ButtonPress(void);
 void ButtonHold(void);
 void ButtonRelease(void);
+// Debug Functions
+#ifdef DEV_MODE_DEBUG
+void TestFunc(void);
+#endif
 
 #endif

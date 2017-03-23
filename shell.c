@@ -19,6 +19,9 @@
 
 void ShellCommandProcessor(void)
 {
+#ifdef DEV_MODE_DEBUG
+	DEBUG3 = ~DEBUG3;
+#endif
 	if(_shell.terminal->statusBits.hasSequence)
 	{
 		CommResetSequence(_shell.terminal);
@@ -26,23 +29,30 @@ void ShellCommandProcessor(void)
 
 	if(_comm1.external.lineQueue.length && !_sram.busy)
 	{
+#ifdef DEV_MODE_DEBUG
 		ShellDequeueLine(&_comm1.external, &_shell.swapBuffer);
 		while(_sram.busy)
 			continue;
+		CommPutString(_shell.terminal, "WIFI: ");
 		CommPutBuffer(_shell.terminal, &_shell.swapBuffer);
+#endif
 	}
 	else if(_shell.terminal->external.lineQueue.length && !_sram.busy)
 	{
+#ifdef DEV_MODE_DEBUG
 		ShellDequeueLine(&_shell.terminal->external, &_shell.swapBuffer);
 		while(_sram.busy)
 			continue;
 		CommPutBuffer(&_comm1, &_shell.swapBuffer);
+#endif
 	}
 
+#ifdef DEV_MODE_DEBUG
 	if(_shell.result.lastWarning)
 		ShellPrintLastWarning();
 	if(_shell.result.lastError)
 		ShellPrintLastError();
+#endif
 }
 
 // COMMANDS -------------------------------------------------------------------
