@@ -4,6 +4,7 @@
  * Created:	March 17, 2016, 2:35 AM
  */
 
+#include <stdint.h>
 #include "utility.h"
 
 // BUFFER FUNCTIONS------------------------------------------------------------

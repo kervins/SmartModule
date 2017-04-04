@@ -7,28 +7,32 @@
 #ifndef SHELL_H
 #define SHELL_H
 
-#include <stdint.h>
 #include "serial_comm.h"
+#include "linked_list.h"
 
 // DEFINITIONS-----------------------------------------------------------------
-#define SHELL_MAX_TASK_COUNT	16
 #define SHELL_MAX_RESULT_VALUES	4
+#define SHELL_MAX_TASK_PARAMS	4
+
+// DEFINITIONS (WARNINGS & ERRORS)---------------------------------------------
 // Warnings
-#define SHELL_WARNING_DATA_TRUNCATED	1
+#define SHELL_WARNING_DATA_TRUNCATED			1
 // Errors
-#define SHELL_ERROR_SRAM_BUSY			1
-#define SHELL_ERROR_ZERO_LENGTH			2
-#define SHELL_ERROR_ADDRESS_RANGE		3
+#define SHELL_ERROR_SRAM_BUSY					1
+#define SHELL_ERROR_ZERO_LENGTH					2
+#define SHELL_ERROR_ADDRESS_RANGE				3
 #define SHELL_ERROR_LINE_QUEUE_EMPTY			4
+#define SHELL_ERROR_COMMAND_NOT_RECOGNIZED		5
+#define SHELL_ERROR_TASK_TIMEOUT				6
 
 // TYPE DEFINITIONS------------------------------------------------------------
 
 typedef struct Task
 {
-	Action action;				// Pointer to a function that returns void and has no parameters
-	void* param;				// Optional parameter to be passed to the task
-	uint16_t timeoutAfter;		// If the task has not successfully completed after this interval (ms), kill it
-	uint32_t invocationTime;	// Timestamp indicating when the task was first run
+	Action action;
+	void* params[4];
+	unsigned long int invocationTime;
+	unsigned long int timeoutInterval;
 } Task;
 
 typedef struct Shell
@@ -39,34 +43,42 @@ typedef struct Shell
 
 		struct
 		{
-			unsigned busy : 1;
-			unsigned : 7;
+			unsigned : 8;
 		} statusBits;
-		uint8_t status;
+		unsigned char status;
 	} ;
 
 	struct
 	{
-		uint8_t lastWarning;
-		uint8_t lastError;
-		uint32_t values[SHELL_MAX_RESULT_VALUES];
+		unsigned char lastWarning;
+		unsigned char lastError;
+		unsigned long int values[SHELL_MAX_RESULT_VALUES];
 	} result;
 
+	CommPort* server;
 	CommPort* terminal;
+	LinkedList_16Element taskList;
+	Task currentTask;
 	BufferU8 swapBuffer;
 } Shell;
 
 // GLOBAL VARIABLES------------------------------------------------------------
 extern Shell _shell;
-extern const uint24_t shellCommandAddress;
+extern const unsigned short long int shellCommandAddress;
 
 // FUNCTION PROTOTYPES---------------------------------------------------------
 // Shell Command Processor
 void ShellCommandProcessor(void);
+void ShellHandleSequence(CommPort* comm);
+void ShellParseCommandLine(void);
 // Shell Management Functions
-void ShellInitialize(CommPort* terminalComm, uint16_t swapBufferSize, char* swapBufferData);
+void ShellInitialize(CommPort* serverComm, CommPort* terminalComm,
+					 unsigned int swapBufferSize, char* swapBufferData);
 void ShellDequeueLine(ExternalLineQueue* source, BufferU8* destination);
+void ShellPrintVersionInfo(void);
 void ShellPrintLastWarning(void);
 void ShellPrintLastError(void);
+// Commands
+void ShellCmdTest1(void);
 
 #endif

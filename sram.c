@@ -5,6 +5,7 @@
  */
 
 #include <xc.h>
+#include <stdint.h>
 #include <stdbool.h>
 #include "sram.h"
 #include "main.h"

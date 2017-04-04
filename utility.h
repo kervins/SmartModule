@@ -7,7 +7,6 @@
 #ifndef UTILITY_H
 #define UTILITY_H
 
-#include <stdint.h>
 #include <stdbool.h>
 
 // MACROS----------------------------------------------------------------------
@@ -23,6 +22,12 @@
 #define bit_clear(var, bit)	(var &= ~(1 << bit))
 #define bit_flip(var, bit)	(var ^= (1 << bit))
 
+// Bit (will not modify argument)
+#define set_rightmost_zero(var)			(var | (var + 1))
+#define clear_rightmost_one(var)	(var & (var - 1))
+#define isolate_rightmost_zero(var)	(~var & (var + 1))
+#define isolate_rightmost_one(var)	(var & (-var))
+
 // Bitmask
 #define bitmask_test(var, mask)		(var & (mask))
 #define bitmask_set(var, mask)		(var |= (mask))
@@ -30,7 +35,7 @@
 #define bitmask_flip(var, mask)		(var ^= (mask))
 
 // Byte
-#define GET_BYTE(value,byteIndex) (uint8_t)((value>>(8*byteIndex))&0xFF)
+#define GET_BYTE(value,byteIndex) (unsigned char)((value>>(8*byteIndex))&0xFF)
 
 // DEFINITIONS (ASCII CONTROL CHARACTERS)--------------------------------------
 #define ASCII_NUL	0x00	// Null Character
@@ -79,12 +84,12 @@
 // FUNCTION POINTERS-----------------------------------------------------------
 typedef void (*Action)(void) ;
 typedef void (*Action_pV)(void*) ;
-typedef void (*Action_U8)(uint8_t);
-typedef void (*Action_U8_U8)(uint8_t, uint8_t);
-typedef uint8_t (*U8_Func)(void) ;
-typedef uint8_t (*U8_Func_pV)(void*) ;
-typedef uint8_t (*U8_Func_U8)(void) ;
-typedef uint8_t (*U8_Func_U8_U8)(uint8_t, uint8_t);
+typedef void (*Action_U8)(unsigned char) ;
+typedef void (*Action_U8_U8)(unsigned char, unsigned char) ;
+typedef unsigned char (*U8_Func)(void) ;
+typedef unsigned char (*U8_Func_pV)(void*) ;
+typedef unsigned char (*U8_Func_U8)(void) ;
+typedef unsigned char (*U8_Func_U8_U8)(unsigned char, unsigned char) ;
 
 // ENUMERATED TYPES------------------------------------------------------------
 
@@ -126,26 +131,26 @@ typedef enum
 
 typedef struct BufferU8
 {
-	uint16_t bufferSize;
-	uint16_t length;
+	unsigned int bufferSize;
+	unsigned int length;
 	unsigned char* data;
 } BufferU8;
 
 typedef struct BufferU16
 {
-	uint16_t bufferSize;
-	uint16_t length;
-	uint16_t* data;
+	unsigned int bufferSize;
+	unsigned int length;
+	unsigned int* data;
 } BufferU16;
 
 // Buffers that can be used as a circular queue (data is processed FIFO)
 
 typedef struct RingBufferU8
 {
-	uint16_t bufferSize;
-	uint16_t length;
-	uint16_t head;
-	uint16_t tail;
+	unsigned int bufferSize;
+	unsigned int length;
+	unsigned int head;
+	unsigned int tail;
 	char* data;
 } RingBufferU8;
 
@@ -172,27 +177,27 @@ typedef union BcdTwoDigit
 		unsigned Ones : 4;
 		unsigned Tens : 4;
 	} ;
-	uint8_t ByteValue;
+	unsigned char ByteValue;
 } BcdTwoDigit;
 
 // Structure that provides both the address and length of a file
 
 typedef struct FileDescriptor
 {
-	uint24_t length;
-	uint24_t address;
+	unsigned short long int length;
+	unsigned short long int address;
 } FileDescriptor;
 
 // FUNCTION PROTOTYPES---------------------------------------------------------
 // Buffer
-void BufferU8Create(BufferU8* buffer, uint16_t bufferSize, char* bufferData);
-void BufferU16Create(BufferU16* buffer, uint16_t bufferSize, uint16_t* bufferData);
+void BufferU8Create(BufferU8* buffer, unsigned int bufferSize, char* bufferData);
+void BufferU16Create(BufferU16* buffer, unsigned int bufferSize, unsigned int* bufferData);
 // RingBuffer (volatile)
-void RingBufferCreate(volatile RingBufferU8* buffer, uint16_t bufferSize, char* data);
+void RingBufferCreate(volatile RingBufferU8* buffer, unsigned int bufferSize, char* data);
 void RingBufferEnqueue(volatile RingBufferU8* buffer, char data);
 char RingBufferDequeue(volatile RingBufferU8* buffer);
 char RingBufferDequeuePeek(volatile RingBufferU8* buffer);
-void RingBufferRemoveLast(volatile RingBufferU8* buffer, uint16_t count);
+void RingBufferRemoveLast(volatile RingBufferU8* buffer, unsigned int count);
 // Parsing Functions
 bool BufferEquals(BufferU8* line, const char* str);
 bool BufferContains(BufferU8* line, const char* str);

@@ -21,6 +21,7 @@
 #include "sram.h"
 #include "wifi.h"
 #include "shell.h"
+#include "linked_list.h"
 #include "utility.h"
 
 // GLOBAL VARIABLES------------------------------------------------------------
@@ -33,6 +34,8 @@ const CommDataRegisters _comm2Regs = {&TXREG2, (TXSTAbits_t*) & TXSTA2, &PIE3, 4
 WifiInfo _wifi;
 Shell _shell;
 const uint24_t shellCommandAddress = 0;
+
+LinkedList_16Element _list;
 
 // PROGRAM ENTRY---------------------------------------------------------------
 
@@ -96,7 +99,7 @@ void ConfigurePorts(void)
 	// PORTA
 	LATA	= 0b00000000;	// Clear port latch
 #ifdef DEV_MODE_DEBUG
-	ANCON0	= 0b00000000;	// Disable analog inputs AN0-AN3
+	ANCON0	= 0b11111111;	// Disable analog inputs AN0-AN3
 	TRISA	= 0b00110000;	// Output PORTA<7:6,3:0>, Input PORTA<5:4>
 #else
 	ANCON0	= 0b11110000;	// Enable analog inputs AN0-AN3
@@ -241,29 +244,30 @@ void ConfigureOS(void)
 	char rxData2[RX_BUFFER_SIZE];
 	char lineData1[LINE_BUFFER_SIZE];
 	char lineData2[LINE_BUFFER_SIZE];
-	uint8_t lineQueueData1[LINE_QUEUE_SIZE_COMM1];
-	uint8_t lineQueueData2[LINE_QUEUE_SIZE_COMM2];
+	uint8_t lineQueueData1[COMM1_LINE_QUEUE_SIZE];
+	uint8_t lineQueueData2[COMM2_LINE_QUEUE_SIZE];
 	char swapData[LINE_BUFFER_SIZE];
 
 	// Initialize global variables
 	CommPortInitialize(&_comm1,
 					TX_BUFFER_SIZE, RX_BUFFER_SIZE, LINE_BUFFER_SIZE,
 					&txData1, &rxData1, &lineData1,
-					LINE_QUEUE_ADDR_COMM1, LINE_QUEUE_SIZE_COMM1, &lineQueueData1,
+					COMM1_LINE_QUEUE_ADDR, COMM1_LINE_QUEUE_SIZE, &lineQueueData1,
 					NEWLINE_CRLF, NEWLINE_CRLF,
 					&_comm1Regs,
 					false, false);
 	CommPortInitialize(&_comm2,
 					TX_BUFFER_SIZE, RX_BUFFER_SIZE, LINE_BUFFER_SIZE,
 					&txData2, &rxData2, &lineData2,
-					LINE_QUEUE_ADDR_COMM2, LINE_QUEUE_SIZE_COMM2, &lineQueueData2,
+					COMM2_LINE_QUEUE_ADDR, COMM2_LINE_QUEUE_SIZE, &lineQueueData2,
 					NEWLINE_CRLF, NEWLINE_CR,
 					&_comm2Regs,
 					true, true);
 	_comm1.modeBits.echoNewline = false;
+	_comm2.modeBits.echoNewline = false;
 	ButtonInfoInitialize(&_button, ButtonPress, ButtonHold, ButtonRelease, 0);
 	SramStatusInitialize();
-	ShellInitialize(&_comm2, LINE_BUFFER_SIZE, swapData);
+	ShellInitialize(&_comm1, &_comm2, LINE_BUFFER_SIZE, swapData);
 	// TODO: Shell needs to print initial command line... here
 
 	// Hold Wifi in reset
@@ -278,9 +282,9 @@ void ConfigureOS(void)
 	mode.holdDisabled = true;
 	mode.mode = SRAM_MODE_BURST;
 	SramSetMode(mode);
-	while(_sram.busy)
+	/*while(_sram.busy)
 		continue;
-	SramFill(0x000000, SRAM_CAPACITY, 0xFF);
+	SramFill(0x000000, SRAM_CAPACITY, 0xFF);*/
 
 	// Start tick timer (Timer 4)
 	T4CONbits.TMR4ON = true;
@@ -290,7 +294,7 @@ void ConfigureOS(void)
 
 void ButtonPress(void)
 {
-	;
+	TestFunc1();
 }
 
 void ButtonHold(void)
@@ -306,8 +310,51 @@ void ButtonRelease(void)
 // DEBUG FUNCTIONS-------------------------------------------------------------
 #ifdef DEV_MODE_DEBUG
 
-void TestFunc(void)
+void TestFunc1(void)
 {
-	;
+	LinkedList_16Element_Initialize(&_list);
+
+	LinkedListInsert(&_list, _list.last, (void*) 'J', false);
+	LinkedListInsert(&_list, _list.last, (void*) 'o', false);
+	LinkedListInsert(&_list, _list.last, (void*) 'h', false);
+	LinkedListInsert(&_list, _list.last, (void*) 'n', false);
+	LinkedListInsert(&_list, _list.last, (void*) 'a', false);
+	LinkedListInsert(&_list, _list.last, (void*) 't', false);
+	LinkedListInsert(&_list, _list.last, (void*) 'h', false);
+	LinkedListInsert(&_list, _list.last, (void*) 'a', false);
+	LinkedListInsert(&_list, _list.last, (void*) 'n', false);
+	LinkedListInsert(&_list, _list.last, (void*) 'R', false);
+	LinkedListInsert(&_list, _list.last, (void*) 'u', false);
+	LinkedListInsert(&_list, _list.last, (void*) 'i', false);
+	LinkedListInsert(&_list, _list.last, (void*) 's', false);
+	LinkedListInsert(&_list, _list.last, (void*) 'i', false);
+	LinkedListInsert(&_list, _list.last, (void*) '!', false);
+	LinkedListInsert(&_list, _list.last, (void*) '?', false);
+	CommPrintLinkedListInfo(&_list, &_comm2);
+	CommPutString(&_comm2, "        ");
+	CommPutLinkedListChars(&_list, &_comm2);
+	CommPutNewline(&_comm2);
+	CommPutNewline(&_comm2);
+
+	LinkedListRemove(&_list, LinkedListFindFirst(&_list, (void*) 'h'));
+	LinkedListRemove(&_list, LinkedListFindFirst(&_list, (void*) '!'));
+	LinkedListRemove(&_list, LinkedListFindFirst(&_list, (void*) '?'));
+	CommPrintLinkedListInfo(&_list, &_comm2);
+	CommPutString(&_comm2, "        ");
+	CommPutLinkedListChars(&_list, &_comm2);
+	CommPutNewline(&_comm2);
+	CommPutNewline(&_comm2);
+
+	LinkedListReplace(&_list, LinkedListFindLast(&_list, (void*) 'n'), (void*) '.');
+	LinkedListRemove(&_list, LinkedListFindFirst(&_list, (void*) 'a'));
+	LinkedListRemove(&_list, LinkedListFindFirst(&_list, (void*) 't'));
+	LinkedListRemove(&_list, LinkedListFindFirst(&_list, (void*) 'h'));
+	LinkedListRemove(&_list, LinkedListFindFirst(&_list, (void*) 'a'));
+	CommPrintLinkedListInfo(&_list, &_comm2);
+	CommPutString(&_comm2, "        ");
+	CommPutLinkedListChars(&_list, &_comm2);
+	CommPutNewline(&_comm2);
+	CommPutNewline(&_comm2);
 }
+
 #endif

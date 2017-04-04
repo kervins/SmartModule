@@ -7,8 +7,6 @@
 #ifndef WIFI_H
 #define WIFI_H
 
-#include <stdint.h>
-
 // DEFINITIONS-----------------------------------------------------------------
 // Boot states
 #define WIFI_BOOT_POWER_ON_RESET_HOLD	0
@@ -37,9 +35,9 @@ typedef struct
 			unsigned resetMode : 2;
 			unsigned : 2;
 		} statusBits;
-		uint8_t status;
+		unsigned char status;
 	} ;
-	uint32_t eventTime;
+	unsigned long int eventTime;
 } WifiInfo;
 
 // TYPE DEFINITIONS (ESP8266 COMMAND PARAMETERS)-------------------------------

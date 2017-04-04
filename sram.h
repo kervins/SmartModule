@@ -7,7 +7,6 @@
 #ifndef SRAM_H
 #define SRAM_H
 
-#include <stdint.h>
 #include "utility.h"
 
 // DEFINITIONS-----------------------------------------------------------------
@@ -44,7 +43,7 @@ typedef union
 		unsigned : 5;
 		unsigned mode : 2;
 	} ;
-	uint8_t value;
+	unsigned char value;
 } SramMode;
 
 typedef struct Sram
@@ -52,7 +51,7 @@ typedef struct Sram
 
 	struct
 	{
-		uint8_t command;
+		unsigned char command;
 
 		union
 		{
@@ -60,11 +59,11 @@ typedef struct Sram
 
 			struct
 			{
-				uint8_t upper;
-				uint8_t high;
-				uint8_t low;
+				unsigned char upper;
+				unsigned char high;
+				unsigned char low;
 			} addressBytes;
-			uint24_t address;
+			unsigned short long int address;
 		} ;
 		char fillValue;
 	} initialization;
@@ -78,15 +77,15 @@ typedef struct Sram
 			unsigned currentOperation : 3;
 			unsigned : 4;
 		} ;
-		uint8_t status;
+		unsigned char status;
 	} ;
 
 	BufferU8* targetBuffer;
-	uint24_t dataLength;
-	uint24_t bytesRemaining;
-	uint24_t readAddress;
-	uint24_t writeAddress;
-	uint32_t startTime;
+	unsigned short long int dataLength;
+	unsigned short long int bytesRemaining;
+	unsigned short long int readAddress;
+	unsigned short long int writeAddress;
+	unsigned long int startTime;
 } Sram;
 
 // GLOBAL VARIABLES------------------------------------------------------------
@@ -97,9 +96,9 @@ extern volatile Sram _sram;
 void SramStatusInitialize(void);
 // SRAM User Callable Functions
 void SramSetMode(SramMode mode);
-void SramRead(uint24_t address, uint24_t length, BufferU8* destination);
-void SramWrite(uint24_t address, BufferU8* source);
-void SramFill(uint24_t address, uint24_t length, uint8_t value);
+void SramRead(unsigned short long int address, unsigned short long int length, BufferU8* destination);
+void SramWrite(unsigned short long int address, BufferU8* source);
+void SramFill(unsigned short long int address, unsigned short long int length, unsigned char value);
 // SRAM Callback Functions
 void _SramOperationStart(void);
 void _SramRead(void);

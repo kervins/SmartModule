@@ -7,7 +7,6 @@
 #ifndef BUTTON_H
 #define BUTTON_H
 
-#include <stdint.h>
 #include <stdbool.h>
 #include "utility.h"
 
@@ -25,7 +24,7 @@ typedef enum
 
 typedef struct ButtonInfo
 {
-	uint32_t timestamp;
+	unsigned long int timestamp;
 	ButtonStates currentState;
 	unsigned isDebouncing : 1;
 	unsigned isUnhandled : 1;
@@ -38,8 +37,8 @@ typedef struct ButtonInfo
 
 // FUNCTION PROTOTYPES---------------------------------------------------------
 void ButtonInfoInitialize(volatile ButtonInfo* button,
-					  Action pressAction, Action holdAction, Action releaseAction,
-					  bool activeLogicLevel);
+						  Action pressAction, Action holdAction, Action releaseAction,
+						  bool activeLogicLevel);
 void CheckButtonState(volatile ButtonInfo* buttonInfo, bool currentLogicLevel);
 void UpdateButton(volatile ButtonInfo *buttonInfo);
 void ButtonPress(void);

@@ -138,7 +138,7 @@ void __interrupt(low_priority) isrLowPriority(void)
 		}
 	}
 #ifdef DEV_MODE_DEBUG
-	DEBUG1 = 1;
+	DEBUG1 = 0;
 #endif
 	return;
 }

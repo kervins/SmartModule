@@ -7,6 +7,7 @@
 #ifndef SERIAL_COMM_H
 #define SERIAL_COMM_H
 
+#include "linked_list.h"
 #include "utility.h"
 
 // MACROS (Calculates SPBRG values for USART baud rate generator)--------------
@@ -133,4 +134,8 @@ void CommPutChar(CommPort* comm, char data);
 void CommPutString(CommPort* comm, const char* str);
 void CommPutNewline(CommPort* comm);
 void CommPutBuffer(CommPort* comm, BufferU8* source);
+// Linked List Print Functions
+void CommPutLinkedListChars(LinkedList_16Element*, CommPort*);
+void CommPrintLinkedListInfo(LinkedList_16Element*, CommPort*);
+
 #endif

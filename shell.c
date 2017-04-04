@@ -22,29 +22,10 @@ void ShellCommandProcessor(void)
 #ifdef DEV_MODE_DEBUG
 	DEBUG3 = ~DEBUG3;
 #endif
-	if(_shell.terminal->statusBits.hasSequence)
-	{
-		CommResetSequence(_shell.terminal);
-	}
 
-	if(_comm1.external.lineQueue.length && !_sram.busy)
+	if(_shell.currentTask.action)
 	{
-#ifdef DEV_MODE_DEBUG
-		ShellDequeueLine(&_comm1.external, &_shell.swapBuffer);
-		while(_sram.busy)
-			continue;
-		CommPutString(_shell.terminal, "WIFI: ");
-		CommPutBuffer(_shell.terminal, &_shell.swapBuffer);
-#endif
-	}
-	else if(_shell.terminal->external.lineQueue.length && !_sram.busy)
-	{
-#ifdef DEV_MODE_DEBUG
-		ShellDequeueLine(&_shell.terminal->external, &_shell.swapBuffer);
-		while(_sram.busy)
-			continue;
-		CommPutBuffer(&_comm1, &_shell.swapBuffer);
-#endif
+		;
 	}
 
 #ifdef DEV_MODE_DEBUG
@@ -55,16 +36,60 @@ void ShellCommandProcessor(void)
 #endif
 }
 
+void ShellParseCommandLine(void)
+{
+	;
+}
+
+void ShellHandleSequence(CommPort* comm)
+{
+	switch(comm->sequence.terminator)
+	{
+		case ANSI_CUU:
+		{
+
+			break;
+		}
+		case ANSI_CUD:
+		{
+
+			break;
+		}
+		case ANSI_CUF:
+		{
+
+			break;
+		}
+		case ANSI_CUB:
+		{
+
+			break;
+		}
+	}
+	CommResetSequence(comm);
+}
+
 // COMMANDS -------------------------------------------------------------------
+
+void ShellCmdTest1(void)
+{
+	;
+}
 
 // SHELL MANAGEMENT------------------------------------------------------------
 
-void ShellInitialize(CommPort* terminalComm, uint16_t swapBufferSize, char* swapBufferData)
+void ShellInitialize(CommPort* serverComm, CommPort* terminalComm,
+					 uint16_t swapBufferSize, char* swapBufferData)
 {
 	_shell.status = 0;
 	_shell.result.lastWarning = 0;
 	_shell.result.lastError = 0;
+	_shell.currentTask.action = NULL;
+	_shell.currentTask.invocationTime = 0;
+	_shell.currentTask.timeoutInterval = 0;
+	_shell.server = serverComm;
 	_shell.terminal = terminalComm;
+	LinkedList_16Element_Initialize(&_shell.taskList);
 	BufferU8Create(&_shell.swapBuffer, swapBufferSize, swapBufferData);
 }
 
@@ -109,6 +134,19 @@ void ShellDequeueLine(ExternalLineQueue* source, BufferU8* destination)
 	SramRead(address, length, destination);
 }
 
+void ShellPrintVersionInfo(void)
+{
+	int status = 0;
+	char *valueStr = ftoa(FIRMWARE_VERSION, &status);
+	CommPutString(_shell.terminal, "SmartModule");
+	CommPutNewline(_shell.terminal);
+	CommPutString(_shell.terminal, "Hardware Rev.2");
+	CommPutNewline(_shell.terminal);
+	CommPutString(_shell.terminal, "Firmware V");
+	CommPutString(_shell.terminal, valueStr);
+	CommPutNewline(_shell.terminal);
+}
+
 void ShellPrintLastWarning(void)
 {
 	char valueStr[16];
@@ -133,7 +171,6 @@ void ShellPrintLastWarning(void)
 		}
 	}
 	_shell.result.lastWarning = 0;
-	CommPutNewline(_shell.terminal);
 }
 
 void ShellPrintLastError(void)
@@ -171,6 +208,23 @@ void ShellPrintLastError(void)
 			CommPutString(_shell.terminal, "Line queue is empty");
 			break;
 		}
+		case SHELL_ERROR_COMMAND_NOT_RECOGNIZED:
+		{
+			CommPutString(_shell.terminal, "Command not recognized: ");
+			CommPutString(_shell.terminal, _shell.swapBuffer.data);
+			break;
+		}
+		case SHELL_ERROR_TASK_TIMEOUT:
+		{
+			ltoa(&valueStr, _shell.result.values[0], 16);
+			CommPutString(_shell.terminal, "The task (@ 0x");
+			CommPutString(_shell.terminal, &valueStr);
+			CommPutString(_shell.terminal, ") has timed out after ");
+			ltoa(&valueStr, _tick - _shell.result.values[1], 10);
+			CommPutString(_shell.terminal, &valueStr);
+			CommPutString(_shell.terminal, "ms");
+			break;
+		}
 		default:
 		{
 			CommPutString(_shell.terminal, "UNDEFINED");
@@ -178,5 +232,4 @@ void ShellPrintLastError(void)
 		}
 	}
 	_shell.result.lastError = 0;
-	CommPutNewline(_shell.terminal);
 }
