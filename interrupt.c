@@ -45,14 +45,14 @@ void __interrupt(low_priority) isrLowPriority(void)
 		if(_sram.bytesRemaining == 0)
 		{
 			RAM_CS = 1;
-			if(_sram.currentOperation == SRAM_OP_READ)
+			if(_sram.statusBits.currentOperation == SRAM_OP_READ)
 				_sram.targetBuffer->length = _sram.dataLength;
-			_sram.busy = false;
+			_sram.statusBits.busy = false;
 		}
 
-		if(_sram.busy)
+		if(_sram.statusBits.busy)
 		{
-			switch(_sram.currentOperation)
+			switch(_sram.statusBits.currentOperation)
 			{
 				case SRAM_OP_READ:
 				{

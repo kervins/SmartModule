@@ -511,6 +511,10 @@
                   value="report"/>
         <property key="warningmessagebreakoptions.W9805_SCL_UNRECOGNIZED_VAR"
                   value="report"/>
+        <property key="warningmessagebreakoptions.W9901_RTSP_INVALID_OPERATION_SELECTION"
+                  value="report"/>
+        <property key="warningmessagebreakoptions.W9902_RTSP_FLASH_PROGRAM_WRITE_PROTECTED"
+                  value="report"/>
         <property key="warningmessagebreakoptions.displaywarningmessagesoption"
                   value=""/>
         <property key="warningmessagebreakoptions.warningmessages" value="holdstate"/>

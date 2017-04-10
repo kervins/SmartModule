@@ -90,34 +90,35 @@ typedef unsigned char (*U8_Func)(void) ;
 typedef unsigned char (*U8_Func_pV)(void*) ;
 typedef unsigned char (*U8_Func_U8)(void) ;
 typedef unsigned char (*U8_Func_U8_U8)(unsigned char, unsigned char) ;
+typedef bool (*B_Action)(void) ;
 
 // ENUMERATED TYPES------------------------------------------------------------
 
 typedef enum
 {
-	JANUARY		= 1,
-	FEBRUARY	= 2,
-	MARCH		= 3,
-	APRIL		= 4,
-	MAY			= 5,
-	JUNE		= 6,
-	JULY		= 7,
-	AUGUST		= 8,
-	SEPTEMBER	= 9,
-	OCTOBER		= 10,
-	NOVEMBER	= 11,
-	DECEMBER	= 12
+	JANUARY		= 0x01,
+	FEBRUARY	= 0x02,
+	MARCH		= 0x03,
+	APRIL		= 0x04,
+	MAY			= 0x05,
+	JUNE		= 0x06,
+	JULY		= 0x07,
+	AUGUST		= 0x08,
+	SEPTEMBER	= 0x09,
+	OCTOBER		= 0x10,
+	NOVEMBER	= 0x11,
+	DECEMBER	= 0x12
 } MonthsOfYear;
 
 typedef enum
 {
+	SUNDAY		= 0,
 	MONDAY		= 1,
 	TUESDAY		= 2,
 	WEDNESDAY	= 3,
 	THURSDAY	= 4,
 	FRIDAY		= 5,
-	SATURDAY	= 6,
-	SUNDAY		= 7
+	SATURDAY	= 6
 } DaysOfWeek;
 
 typedef enum
@@ -154,19 +155,6 @@ typedef struct RingBufferU8
 	char* data;
 } RingBufferU8;
 
-// Condenses a complete date and time into an efficient 43b structure
-
-typedef struct DateTime
-{
-	unsigned second		: 6;
-	unsigned minute		: 6;
-	unsigned hour		: 5;
-	unsigned dayOfWeek	: 3;
-	unsigned day		: 5;
-	unsigned month		: 4;
-	unsigned year		: 14;
-} DateTime;
-
 // Structure that allows any 8b value to be interpreted as 2-digit Binary Coded Decimal
 
 typedef union BcdTwoDigit
@@ -179,6 +167,17 @@ typedef union BcdTwoDigit
 	} ;
 	unsigned char ByteValue;
 } BcdTwoDigit;
+
+typedef struct DateTime
+{
+	BcdTwoDigit Year;
+	BcdTwoDigit Month;
+	BcdTwoDigit Day;
+	DaysOfWeek Weekday;
+	BcdTwoDigit Hour;
+	BcdTwoDigit Minute;
+	BcdTwoDigit Second;
+} DateTime;
 
 // Structure that provides both the address and length of a file
 

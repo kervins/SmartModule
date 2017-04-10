@@ -15,11 +15,11 @@
 
 void SramSetMode(SramMode mode)
 {
-	if(_sram.busy)
+	if(_sram.statusBits.busy)
 		return;
 
-	_sram.busy = true;
-	_sram.currentOperation = SRAM_OP_COMMAND;
+	_sram.statusBits.busy = true;
+	_sram.statusBits.currentOperation = SRAM_OP_COMMAND;
 	_sram.startTime = _tick;
 	_sram.dataLength = 0;
 	_sram.bytesRemaining = 0;
@@ -38,7 +38,7 @@ void SramSetMode(SramMode mode)
 
 void SramRead(uint24_t address, uint24_t length, BufferU8* destination)
 {
-	if(_sram.busy)
+	if(_sram.statusBits.busy)
 		return;
 	if(length == 0 || address >= SRAM_CAPACITY)
 		return;
@@ -47,8 +47,8 @@ void SramRead(uint24_t address, uint24_t length, BufferU8* destination)
 	if(address + length >= SRAM_CAPACITY)
 		length = SRAM_CAPACITY - address;
 
-	_sram.busy = true;
-	_sram.currentOperation = SRAM_OP_READ;
+	_sram.statusBits.busy = true;
+	_sram.statusBits.currentOperation = SRAM_OP_READ;
 	_sram.startTime = _tick;
 	_sram.readAddress = address;
 	_sram.dataLength = length;
@@ -61,13 +61,13 @@ void SramRead(uint24_t address, uint24_t length, BufferU8* destination)
 
 void SramWrite(uint24_t address, BufferU8* source)
 {
-	if(_sram.busy)
+	if(_sram.statusBits.busy)
 		return;
 	if(source->length == 0 || address + source->length >= SRAM_CAPACITY)
 		return;
 
-	_sram.busy = true;
-	_sram.currentOperation = SRAM_OP_WRITE;
+	_sram.statusBits.busy = true;
+	_sram.statusBits.currentOperation = SRAM_OP_WRITE;
 	_sram.startTime = _tick;
 	_sram.writeAddress = address;
 	_sram.dataLength = source->length;
@@ -80,15 +80,15 @@ void SramWrite(uint24_t address, BufferU8* source)
 
 void SramFill(uint24_t address, uint24_t length, uint8_t value)
 {
-	if(_sram.busy)
+	if(_sram.statusBits.busy)
 		return;
 	if(length == 0 || address >= SRAM_CAPACITY)
 		return;
 	if(address + length >= SRAM_CAPACITY)
 		length = SRAM_CAPACITY - address;
 
-	_sram.busy = true;
-	_sram.currentOperation = SRAM_OP_FILL;
+	_sram.statusBits.busy = true;
+	_sram.statusBits.currentOperation = SRAM_OP_FILL;
 	_sram.startTime = _tick;
 	_sram.writeAddress = address;
 	_sram.dataLength = length;
@@ -176,7 +176,7 @@ void SramStatusInitialize(void)
 	_sram.initialization.command = 0;
 	_sram.initialization.address = 0;
 	_sram.initialization.fillValue = 0;
-	_sram.currentOperation = 0;
+	_sram.statusBits.currentOperation = 0;
 	_sram.status = 0;
 	_sram.dataLength = 0;
 	_sram.bytesRemaining = 0;

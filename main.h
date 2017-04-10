@@ -7,6 +7,8 @@
 #ifndef MAIN_H
 #define MAIN_H
 
+#include "utility.h"
+
 // DEVELOPMENT MODE DEFINITION-------------------------------------------------
 #define	DEV_MODE_DEBUG			// Compile debugging definitions and routines
 
@@ -80,6 +82,9 @@ void ConfigureOS(void);
 void ButtonPress(void);
 void ButtonHold(void);
 void ButtonRelease(void);
+// Utility Functions
+void SetDateTime(DateTime*);
+void GetDateTime(DateTime*);
 // Debug Functions
 #ifdef DEV_MODE_DEBUG
 void TestFunc1(void);
@@ -93,7 +98,7 @@ void TestFunc1(void);
  *			0000000000000000
  *			0000000000000000
  *			________________
- * 0x00000:	AAAAAAAAAAAAA...	<-- A: TaskAction Storage (corresponds to bitmap in shell stack)
+ * 0x00000:	................
  * 0x01000: ................
  * 0x02000: ................
  * 0x03000: ................
@@ -122,7 +127,7 @@ void TestFunc1(void);
  * 0x1A000: ................
  * 0x1B000: ................
  * 0x1C000: ................
- * 0x1D000: CCCCCCCCCCCCCCCC	<-- Command History
+ * 0x1D000: ................
  * 0x1E000: 1111111111111111	<-- Comm1 Line Buffer
  * 0x1F000: 2222222222222222	<-- Comm2 Line Buffer
  */

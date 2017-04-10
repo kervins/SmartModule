@@ -40,7 +40,7 @@ void ButtonInfoInitialize(volatile ButtonInfo* button,
 						  Action pressAction, Action holdAction, Action releaseAction,
 						  bool activeLogicLevel);
 void CheckButtonState(volatile ButtonInfo* buttonInfo, bool currentLogicLevel);
-void UpdateButton(volatile ButtonInfo *buttonInfo);
+void UpdateButton(volatile ButtonInfo* buttonInfo);
 void ButtonPress(void);
 void ButtonHold(void);
 void ButtonRelease(void);

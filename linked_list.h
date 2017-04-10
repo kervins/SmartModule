@@ -26,13 +26,15 @@ typedef struct LinkedList_16Element
 {
 	LinkedListNode nodeMemory[16];
 	unsigned int memoryBitmap;
+	unsigned char elementSize;
+	char* elementMemoryBaseAddr;
 	LinkedListNode* first;
 	LinkedListNode* last;
 } LinkedList_16Element;
 
 // FUNCTION PROTOTYPES---------------------------------------------------------
 // Management Functions
-void LinkedList_16Element_Initialize(LinkedList_16Element*);
+void LinkedList_16Element_Initialize(LinkedList_16Element*, void*, unsigned char);
 LinkedListNode* LinkedListNewNode(LinkedList_16Element*);
 void LinkedListFreeNode(LinkedList_16Element*, LinkedListNode*);
 // Manipulation Functions

@@ -76,7 +76,7 @@ typedef struct Sram
 			unsigned busy : 1;
 			unsigned currentOperation : 3;
 			unsigned : 4;
-		} ;
+		} statusBits;
 		unsigned char status;
 	} ;
 

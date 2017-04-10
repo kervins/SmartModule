@@ -197,10 +197,10 @@ void UpdateCommPort(CommPort* comm)
 void CommFlushLineBuffer(CommPort* comm)
 {
 
-	while(_sram.busy)
+	while(_sram.statusBits.busy)
 		continue;
 	RingBufferEnqueue(&comm->external.lineQueue, comm->buffers.line.length);
-	SramWrite(comm->external.baseAddress + (comm->external.blockSize * comm->external.lineQueue.head),
+	SramWrite(comm->external.baseAddress + (comm->external.blockSize *  comm->external.lineQueue.head),
 			&comm->buffers.line);
 	comm->buffers.line.length = 0;
 }

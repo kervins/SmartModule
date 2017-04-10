@@ -10,21 +10,24 @@
 
 // MANAGEMENT FUNCTIONS--------------------------------------------------------
 
-void LinkedList_16Element_Initialize(LinkedList_16Element* list)
+void LinkedList_16Element_Initialize(LinkedList_16Element* list,
+									 void* elementMemory, unsigned char elementSize)
 {
-	if(list == 0)
+	if(list == 0 || elementMemory == 0)
 		return;
 
 	list->first = 0;
 	list->last = 0;
 	list->memoryBitmap = 0;
+	list->elementMemoryBaseAddr = (char*) elementMemory;
+	list->elementSize = elementSize;
 
 	// Initialize memory indices
 	uint8_t i;
 	for(i = 0; i < 16; i++)
 	{
 		list->nodeMemory[i].memoryIndex = i;
-		list->nodeMemory[i].data = 0;
+		list->nodeMemory[i].data = (unsigned char*) elementMemory + (i * elementSize);
 		list->nodeMemory[i].next = 0;
 		list->nodeMemory[i].prev = 0;
 	}
@@ -51,7 +54,7 @@ LinkedListNode* LinkedListNewNode(LinkedList_16Element* list)
 		return 0;
 
 	bit_set(list->memoryBitmap, result);
-	return &list->nodeMemory[result];
+	return (void*) &list->nodeMemory[result];
 }
 
 void LinkedListFreeNode(LinkedList_16Element* list, LinkedListNode* node)
@@ -76,8 +79,14 @@ void LinkedListInsert(LinkedList_16Element* list, LinkedListNode* node, void* da
 	if(newNode == 0)
 		return;
 
+	// Copy data
+	uint8_t i;
+	for(i = 0; i < list->elementSize; i++)
+	{
+		*((unsigned char*) newNode->data + i) = *((unsigned char*) data + i);
+	}
+
 	// If the list is empty, set first/last node pointers to the inserted node
-	newNode->data = data;	// Copy data
 	if(list->first == 0)
 	{
 		list->first = newNode;
@@ -123,8 +132,14 @@ void LinkedListReplace(LinkedList_16Element* list, LinkedListNode* node, void* d
 	if(newNode == 0)
 		return;
 
+	// Copy data
+	uint8_t i;
+	for(i = 0; i < list->elementSize; i++)
+	{
+		*((unsigned char*) newNode->data + i) = *((unsigned char*) data + i);
+	}
+
 	// Update node pointers
-	newNode->data = data;
 	newNode->next = oldNode.next;
 	oldNode.next->prev = newNode;
 	newNode->prev = oldNode.prev;
@@ -154,23 +169,6 @@ void LinkedListRemove(LinkedList_16Element* list, LinkedListNode* node)
 	LinkedListFreeNode(list, node);
 }
 
-/*void LinkedListRemoveAll(LinkedList_16Element* list)
-{
-	if(list == 0)
-		return;
-
-	LinkedListNode* node = list->first;
-	while(node)
-	{
-		LinkedListNode oldNode = *node;
-		LinkedListFreeNode(list, node);
-		node = oldNode.next;
-	}
-
-	list->first = 0;
-	list->last = 0;
-}*/
-
 // SEARCH FUNCTIONS------------------------------------------------------------
 
 LinkedListNode* LinkedListFindFirst(LinkedList_16Element* list, void* data)
@@ -181,7 +179,14 @@ LinkedListNode* LinkedListFindFirst(LinkedList_16Element* list, void* data)
 	LinkedListNode* result = list->first;
 	while(result)
 	{
-		if(result->data == data)
+		uint8_t i = 0;
+		while(i < list->elementSize &&
+			*((unsigned char*) result->data + i) == *((unsigned char*) data + i))
+		{
+			i++;
+		}
+
+		if(i == list->elementSize)
 			return result;
 		result = result->next;
 	}
@@ -196,7 +201,14 @@ LinkedListNode* LinkedListFindLast(LinkedList_16Element* list, void* data)
 	LinkedListNode* result = list->last;
 	while(result)
 	{
-		if(result->data == data)
+		uint8_t i = 0;
+		while(i < list->elementSize &&
+			*((unsigned char*) result->data + i) == *((unsigned char*) data + i))
+		{
+			i++;
+		}
+
+		if(i == list->elementSize)
 			return result;
 		result = result->prev;
 	}

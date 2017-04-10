@@ -25,7 +25,7 @@
 #include "utility.h"
 
 // GLOBAL VARIABLES------------------------------------------------------------
-volatile uint32_t _tick = 0, _prevTick = 0;	// Global timekeeping variable (not related to RTCC)
+volatile uint32_t _tick = 0;	// Global timekeeping variable (not related to RTCC)
 volatile ButtonInfo _button;
 volatile Sram _sram;
 CommPort _comm1, _comm2;
@@ -34,8 +34,6 @@ const CommDataRegisters _comm2Regs = {&TXREG2, (TXSTAbits_t*) & TXSTA2, &PIE3, 4
 WifiInfo _wifi;
 Shell _shell;
 const uint24_t shellCommandAddress = 0;
-
-LinkedList_16Element _list;
 
 // PROGRAM ENTRY---------------------------------------------------------------
 
@@ -48,6 +46,7 @@ void main(void)
 	ConfigureTimers();
 	ConfigureSPI();
 	ConfigureUSART();
+	ConfigureRTCC();
 	ConfigureInterrupts();
 	ConfigureOS();
 
@@ -199,7 +198,28 @@ void ConfigureUSART(void)
 
 void ConfigureRTCC(void)
 {
-	;
+	T1CONbits.T1OSCEN	= true;		// Enable Timer1 internal RC oscillator (configured as clock source for RTCC)
+	RTCCFGbits.RTCSYNC	= false;	// Prevent rollover ripple on RTCVALH, RTCVALL and ALCFGRPT
+	RTCCFGbits.RTCOE	= false;	// RTCC clock output disabled
+	ALRMCFGbits.ALRMEN	= false;	// Alarm is disabled
+
+	// Unlock RTCC value registers
+	EECON2 = 0x55;
+	EECON2 = 0xAA;
+	RTCCFGbits.RTCWREN	= true;
+
+	// Set initial date and time (will be corrected once connected to WiFi)
+	RTCCFGbits.RTCPTR1 = 1;
+	RTCCFGbits.RTCPTR0 = 1;
+	RTCVALH = 0x16;		// Year
+	RTCVALL = 0x31;		// Day
+	RTCVALH = DECEMBER;	// Month
+	RTCVALL = 0x23;		// Hour
+	RTCVALH = SATURDAY;	// Weekday
+	RTCVALL = 0x00;		// Second
+	RTCVALH = 0x59;		// Minute
+	RTCCFGbits.RTCEN	= true;		// Enable RTCC
+	RTCCFGbits.RTCWREN	= false;	// Lock RTCC value registers
 }
 
 void ConfigureInterrupts(void)
@@ -288,13 +308,21 @@ void ConfigureOS(void)
 
 	// Start tick timer (Timer 4)
 	T4CONbits.TMR4ON = true;
+
+	// Create tasks
+	Task newTask;
+	newTask.action = ShellPrintDateTime;
+	newTask.params[0] = _shell.terminal;
+	newTask.mode = TASK_FLAG_INFINITE | TASK_FLAG_PERIODIC;
+	newTask.runInterval = 1000;
+	LinkedListInsert(&_shell.task.list, _shell.task.list.last, &newTask, false);
 }
 
 // BUTTON ACTIONS--------------------------------------------------------------
 
 void ButtonPress(void)
 {
-	TestFunc1();
+	srand(_tick);	// Just about the only source of entropy we have is the damn button!
 }
 
 void ButtonHold(void)
@@ -307,12 +335,49 @@ void ButtonRelease(void)
 	;
 }
 
+// UTILITY FUNCTIONS-----------------------------------------------------------
+
+void SetDateTime(DateTime* dateTime)
+{
+	if(dateTime == NULL)
+		return;
+
+	RTCCFGbits.RTCWREN = true;
+	RTCCFGbits.RTCPTR1 = 1;
+	RTCCFGbits.RTCPTR0 = 1;
+	RTCVALH = dateTime->Year.ByteValue;
+	RTCVALL = dateTime->Day.ByteValue;
+	RTCVALH = dateTime->Month.ByteValue;
+	RTCVALL = dateTime->Hour.ByteValue;
+	RTCVALH = dateTime->Weekday;
+	RTCVALL = dateTime->Second.ByteValue;
+	RTCVALH = dateTime->Minute.ByteValue;
+	RTCCFGbits.RTCWREN = false;
+}
+
+void GetDateTime(DateTime* dateTime)
+{
+	if(dateTime == NULL)
+		return;
+
+	//RTCCFGbits.RTCWREN = true;
+	RTCCFGbits.RTCPTR1 = 1;
+	RTCCFGbits.RTCPTR0 = 1;
+	dateTime->Year.ByteValue	= RTCVALH;
+	dateTime->Day.ByteValue		= RTCVALL;
+	dateTime->Month.ByteValue	= RTCVALH;
+	dateTime->Hour.ByteValue	= RTCVALL;
+	dateTime->Weekday			= RTCVALH;
+	dateTime->Second.ByteValue	= RTCVALL;
+	dateTime->Minute.ByteValue	= RTCVALH;
+	//RTCCFGbits.RTCWREN = false;
+}
+
 // DEBUG FUNCTIONS-------------------------------------------------------------
 #ifdef DEV_MODE_DEBUG
 
-void TestFunc1(void)
-{
-	LinkedList_16Element_Initialize(&_list);
+void TestFunc1(void) {
+	/*LinkedList_16Element_Initialize(&_list);
 
 	LinkedListInsert(&_list, _list.last, (void*) 'J', false);
 	LinkedListInsert(&_list, _list.last, (void*) 'o', false);
@@ -354,7 +419,6 @@ void TestFunc1(void)
 	CommPutString(&_comm2, "        ");
 	CommPutLinkedListChars(&_list, &_comm2);
 	CommPutNewline(&_comm2);
-	CommPutNewline(&_comm2);
-}
+	CommPutNewline(&_comm2);*/ }
 
 #endif
