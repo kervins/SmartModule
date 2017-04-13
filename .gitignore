@@ -3,3 +3,5 @@
 /build/
 buffer.h
 buffer.c
+!/buffer.h
+!/buffer.c
