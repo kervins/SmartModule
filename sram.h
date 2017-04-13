@@ -106,12 +106,12 @@ extern volatile Sram _sram;
 void SramStatusInitialize(void);
 // SRAM User Callable Functions
 void SramSetMode(SramMode mode);
-void SramRead(unsigned short long int address, unsigned short long int length, BufferU8* destination);
-void SramWrite(unsigned short long int address, BufferU8* source);
+void SramReadBytes(unsigned short long int address, unsigned short long int length, BufferU8* destination);
+void SramWriteBytes(unsigned short long int address, BufferU8* source);
 void SramFill(unsigned short long int address, unsigned short long int length, unsigned char value);
 // SRAM Callback Functions
 void _SramOperationStart(void);
-void _SramRead(void);
-void _SramWrite(void);
+void _SramReadBytes(void);
+void _SramWriteBytes(void);
 void _SramFill(void);
 #endif

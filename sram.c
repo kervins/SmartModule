@@ -36,7 +36,7 @@ void SramSetMode(SramMode mode)
 	DMACON1bits.DMAEN = true;
 }
 
-void SramRead(uint24_t address, uint24_t length, BufferU8* destination)
+void SramReadBytes(uint24_t address, uint24_t length, BufferU8* destination)
 {
 	if(_sram.statusBits.busy)
 		return;
@@ -59,7 +59,7 @@ void SramRead(uint24_t address, uint24_t length, BufferU8* destination)
 	_SramOperationStart();
 }
 
-void SramWrite(uint24_t address, BufferU8* source)
+void SramWriteBytes(uint24_t address, BufferU8* source)
 {
 	if(_sram.statusBits.busy)
 		return;
@@ -114,7 +114,7 @@ void _SramOperationStart(void)
 	DMACON1bits.DMAEN = true;
 }
 
-void _SramRead(void)
+void _SramReadBytes(void)
 {
 	uint24_t bytesToRead = _sram.bytesRemaining <= SRAM_BUFFER_SIZE
 			? _sram.bytesRemaining
@@ -132,7 +132,7 @@ void _SramRead(void)
 	DMACON1bits.DMAEN = true;
 }
 
-void _SramWrite(void)
+void _SramWriteBytes(void)
 {
 	uint24_t bytesToWrite = _sram.bytesRemaining <= SRAM_BUFFER_SIZE
 			? _sram.bytesRemaining

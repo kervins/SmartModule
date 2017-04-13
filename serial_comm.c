@@ -18,9 +18,11 @@
 // COMM PORT FUNCTIONS---------------------------------------------------------
 
 void CommPortInitialize(CommPort* comm,
-						uint16_t txBufferSize, uint16_t rxBufferSize, uint16_t lineBufferSize,
+						unsigned int txBufferSize, unsigned int rxBufferSize, unsigned int lineBufferSize,
 						char* txData, char* rxData, char* lineData,
-						uint24_t lineQueueBaseAddress, uint16_t lineQueueSize, uint8_t* lineQueueData,
+						unsigned short long int lineQueueBaseAddress,
+						unsigned int lineQueueSize,
+						unsigned char* lineQueueData,
 						NewlineFlags txNewline, NewlineFlags rxNewline,
 						const CommDataRegisters* registers,
 						bool enableFlowControl, bool enableEcho,
@@ -223,8 +225,8 @@ void CommFlushLineBuffer(CommPort* comm)
 	while(_sram.statusBits.busy)
 		continue;
 	RingBufferEnqueue(&comm->external.buffer, comm->buffers.line.length);
-	SramWrite(comm->external.baseAddress + (comm->external.blockSize *  comm->external.buffer.head),
-			&comm->buffers.line);
+	SramWriteBytes(comm->external.baseAddress + (comm->external.blockSize *  comm->external.buffer.head),
+				&comm->buffers.line);
 	comm->buffers.line.length = 0;
 }
 
@@ -321,91 +323,4 @@ void CommEchoSequence(CommPort* comm)
 			CommPutChar(comm, ';');
 	}
 	CommPutChar(comm, comm->sequence.terminator);
-}
-
-// LINKED LIST PRINT FUNCTIONS-------------------------------------------------
-
-void CommPutLinkedListChars(LinkedList_16Element* list, CommPort* comm)
-{
-	if(list == 0 || comm == 0)
-		return;
-
-	uint8_t i;
-	LinkedListNode* node = list->first;
-	while(node)
-	{
-		CommPutChar(comm, (char) node->data);
-		node = node->next;
-	}
-}
-
-void CommPrintLinkedListInfo(LinkedList_16Element* list, CommPort* comm)
-{
-	if(list == 0 || comm == 0)
-		return;
-
-	uint8_t i, j;
-	char numStr[17];
-
-	CommPutString(comm, "        0       1       2       3       4       5       6       7       8       9       A       B       C       D       E       F");
-	CommPutNewline(comm);
-	CommPutString(comm, "______________________________________________________________________________________________________________________________________");
-	CommPutNewline(comm);
-	Delay1KTCYx(10);
-
-	CommPutString(comm, "ADDR:   ");
-	for(i = 0, j = 0; i < 16; i++)
-	{
-		itoa(&numStr, (uint16_t) & list->nodeMemory[i], 16);
-		CommPutString(comm, "0x");
-		CommPutString(comm, numStr);
-		for(j = strlen(&numStr); j < 6; j++)
-			CommPutChar(comm, ' ');
-	}
-	CommPutNewline(comm);
-	Delay1KTCYx(10);
-
-	CommPutString(comm, "PREV:   ");
-	for(i = 0; i < 16; i++)
-	{
-		itoa(&numStr, (uint16_t) list->nodeMemory[i].prev, 16);
-		CommPutString(comm, "0x");
-		CommPutString(comm, numStr);
-		for(j = strlen(&numStr); j < 6; j++)
-			CommPutChar(comm, ' ');
-	}
-	CommPutNewline(comm);
-	Delay1KTCYx(10);
-
-	CommPutString(comm, "NEXT:   ");
-	for(i = 0; i < 16; i++)
-	{
-		itoa(&numStr, (uint16_t) list->nodeMemory[i].next, 16);
-		CommPutString(comm, "0x");
-		CommPutString(comm, numStr);
-		for(j = strlen(&numStr); j < 6; j++)
-			CommPutChar(comm, ' ');
-	}
-	CommPutNewline(comm);
-	Delay1KTCYx(10);
-
-	CommPutString(comm, "ALLOC:  ");
-	for(i = 0; i < 16; i++)
-	{
-		if((list->memoryBitmap >> i) & 0x1)
-			CommPutString(comm, "XXXXXXXX");
-		else
-			CommPutString(comm, "________");
-	}
-	CommPutNewline(comm);
-	Delay1KTCYx(10);
-
-	CommPutString(comm, "DATA:   ");
-	for(i = 0; i < 16; i++)
-	{
-		CommPutChar(comm, (char) list->nodeMemory[i].data);
-		CommPutString(comm, "       ");
-	}
-	Delay1KTCYx(10);
-	CommPutNewline(comm);
 }

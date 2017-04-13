@@ -47,12 +47,12 @@ void __interrupt(low_priority) isrLowPriority(void)
 			{
 				case SRAM_OP_READ:
 				{
-					_SramRead();
+					_SramReadBytes();
 					break;
 				}
 				case SRAM_OP_WRITE:
 				{
-					_SramWrite();
+					_SramWriteBytes();
 					break;
 				}
 				case SRAM_OP_FILL:

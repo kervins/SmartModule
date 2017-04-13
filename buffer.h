@@ -13,22 +13,22 @@
 
 typedef struct Buffer
 {
-	unsigned char elementSize;
-	unsigned int capacity;
-	unsigned int length;
-	void* data;
+	unsigned char elementSize;	// Size (bytes) of each element
+	unsigned int capacity;		// Buffer capacity (elements)
+	unsigned int length;		// Number of elements currently in the buffer
+	void* data;					// Pointer to an array of elements
 } Buffer;
 
 // Buffers that can be used as a circular queue (data is processed FIFO)
 
 typedef struct RingBuffer
 {
-	unsigned char elementSize;
-	unsigned int capacity;
-	unsigned int length;
-	unsigned int head;
-	unsigned int tail;
-	void* data;
+	unsigned char elementSize;	// Size (bytes) of each element
+	unsigned int capacity;		// Buffer capacity (elements)
+	unsigned int length;		// Number of elements currently in the buffer
+	unsigned int head;			// Index of the head element
+	unsigned int tail;			// Index of the tail element
+	void* data;					// Pointer to an array of elements
 } RingBuffer;
 
 // FUNCTION PROTOTYPES---------------------------------------------------------

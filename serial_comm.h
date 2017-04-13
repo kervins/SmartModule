@@ -37,16 +37,16 @@ typedef void (*CommAction)(struct CommPort*) ;
 
 typedef struct CommDataRegisters
 {
-	uint8_t volatile* const pTxReg;
+	unsigned char volatile* const pTxReg;
 	TXSTAbits_t volatile* const pTxSta;
-	uint8_t volatile* const pPie;
-	uint8_t const txieBit;
+	unsigned char volatile* const pPie;
+	unsigned char const txieBit;
 } CommDataRegisters;
 
 typedef struct ExternalRingBufferU8
 {
-	uint24_t baseAddress;
-	uint16_t blockSize;
+	unsigned short long int baseAddress;
+	unsigned int blockSize;
 	volatile RingBufferU8 buffer;
 } ExternalRingBufferU8;
 
@@ -66,7 +66,7 @@ typedef struct CommPort
 			unsigned hasSequence : 1;
 			unsigned : 2;
 		} statusBits;
-		uint8_t status;
+		unsigned char status;
 	} ;
 
 	union
@@ -82,7 +82,7 @@ typedef struct CommPort
 			unsigned isBinaryMode : 1;
 			unsigned : 2;
 		} modeBits;
-		uint8_t mode;
+		unsigned char mode;
 	} ;
 
 	struct
@@ -103,11 +103,11 @@ typedef struct CommPort
 				unsigned csiCharCount : 2;
 				unsigned sequenceId : 6;
 			} statusBits;
-			uint8_t status;
+			unsigned char status;
 		} ;
-		uint8_t paramCount;
-		uint8_t params[SEQ_MAX_PARAMS];
-		uint8_t terminator;
+		unsigned char paramCount;
+		unsigned char params[SEQ_MAX_PARAMS];
+		unsigned char terminator;
 	} sequence;
 
 	struct
@@ -124,9 +124,11 @@ typedef struct CommPort
 
 // FUNCTION PROTOTYPES---------------------------------------------------------
 void CommPortInitialize(CommPort* comm,
-						uint16_t txBufferSize, uint16_t rxBufferSize, uint16_t lineBufferSize,
+						unsigned int txBufferSize, unsigned int rxBufferSize, unsigned int lineBufferSize,
 						char* txData, char* rxData, char* lineData,
-						uint24_t lineQueueBaseAddress, uint16_t lineQueueSize, uint8_t* lineQueueData,
+						unsigned short long int lineQueueBaseAddress,
+						unsigned int lineQueueSize,
+						unsigned char* lineQueueData,
 						NewlineFlags txNewline, NewlineFlags rxNewline,
 						const CommDataRegisters* registers,
 						bool enableFlowControl, bool enableEcho,
@@ -139,8 +141,5 @@ void CommPutString(CommPort* comm, const char* str);
 void CommPutNewline(CommPort* comm);
 void CommPutBuffer(CommPort* comm, BufferU8* source);
 void CommPutSequence(CommPort* comm, unsigned char terminator, unsigned char paramCount, ...);
-// Linked List Print Functions
-void CommPutLinkedListChars(LinkedList_16Element*, CommPort*);
-void CommPrintLinkedListInfo(LinkedList_16Element*, CommPort*);
 
 #endif

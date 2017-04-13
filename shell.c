@@ -416,7 +416,7 @@ void ShellDequeueLine(ExternalRingBufferU8* source, BufferU8* destination)
 		length = destination->bufferSize;
 	}
 
-	SramRead(address, length, destination);
+	SramReadBytes(address, length, destination);
 }
 
 // COMMANDS (TERMINAL OUTPUT)--------------------------------------------------
