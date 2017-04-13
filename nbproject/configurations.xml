@@ -13,6 +13,7 @@
       <itemPath>wifi.h</itemPath>
       <itemPath>shell.h</itemPath>
       <itemPath>linked_list.h</itemPath>
+      <itemPath>buffer.h</itemPath>
     </logicalFolder>
     <logicalFolder name="LinkerScript"
                    displayName="Linker Files"
@@ -29,8 +30,8 @@
       <itemPath>serial_comm.c</itemPath>
       <itemPath>wifi.c</itemPath>
       <itemPath>shell.c</itemPath>
-      <itemPath>utility.c</itemPath>
       <itemPath>linked_list.c</itemPath>
+      <itemPath>buffer.c</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"
@@ -641,6 +642,7 @@
                   value="C:\Program Files (x86)/Microchip/MPLABX/v3.55/mplab_ide/mplablibs/modules/ext/ICD3.jar/ICD3FW_014712.jam"/>
         <property key="ToolFirmwareOption.UseLatestFirmware" value="true"/>
         <property key="debugoptions.useswbreakpoints" value="false"/>
+        <property key="firmware.download.all" value="false"/>
         <property key="hwtoolclock.frcindebug" value="false"/>
         <property key="memories.aux" value="false"/>
         <property key="memories.bootflash" value="false"/>

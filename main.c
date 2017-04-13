@@ -49,8 +49,6 @@ void main(void)
 	ConfigureInterrupts();
 	ConfigureOS();
 
-	uint32_t prevTick = 0;
-
 	// Main program loop
 main_loop:
 	// BUTTON------------------------------------------
@@ -93,13 +91,8 @@ void ConfigurePorts(void)
 {
 	// PORTA
 	LATA	= 0b00000000;	// Clear port latch
-#ifdef DEV_MODE_DEBUG
-	ANCON0	= 0b11111111;	// Disable analog inputs AN0-AN3
-	TRISA	= 0b00110000;	// Output PORTA<7:6,3:0>, Input PORTA<5:4>
-#else
 	ANCON0	= 0b11110000;	// Enable analog inputs AN0-AN3
 	TRISA	= 0b00111111;	// Output PORTA<7:6>, Input PORTA<5:0>
-#endif
 
 	// PORTB
 	INTCON2bits.RBPU = 1;	// Disable weak pull-ups
@@ -334,13 +327,13 @@ void SetDateTime(DateTime* dateTime)
 	RTCCFGbits.RTCWREN = true;
 	RTCCFGbits.RTCPTR1 = 1;
 	RTCCFGbits.RTCPTR0 = 1;
-	RTCVALH = dateTime->Year.ByteValue;
-	RTCVALL = dateTime->Day.ByteValue;
-	RTCVALH = dateTime->Month.ByteValue;
-	RTCVALL = dateTime->Hour.ByteValue;
-	RTCVALH = dateTime->Weekday;
-	RTCVALL = dateTime->Second.ByteValue;
-	RTCVALH = dateTime->Minute.ByteValue;
+	RTCVALH = dateTime->date.Year.ByteValue;
+	RTCVALL = dateTime->date.Day.ByteValue;
+	RTCVALH = dateTime->date.Month.ByteValue;
+	RTCVALL = dateTime->time.Hour.ByteValue;
+	RTCVALH = dateTime->weekday;
+	RTCVALL = dateTime->time.Second.ByteValue;
+	RTCVALH = dateTime->time.Minute.ByteValue;
 	RTCCFGbits.RTCWREN = false;
 }
 
@@ -352,62 +345,22 @@ void GetDateTime(DateTime* dateTime)
 	//RTCCFGbits.RTCWREN = true;
 	RTCCFGbits.RTCPTR1 = 1;
 	RTCCFGbits.RTCPTR0 = 1;
-	dateTime->Year.ByteValue	= RTCVALH;
-	dateTime->Day.ByteValue		= RTCVALL;
-	dateTime->Month.ByteValue	= RTCVALH;
-	dateTime->Hour.ByteValue	= RTCVALL;
-	dateTime->Weekday			= RTCVALH;
-	dateTime->Second.ByteValue	= RTCVALL;
-	dateTime->Minute.ByteValue	= RTCVALH;
+	dateTime->date.Year.ByteValue	= RTCVALH;
+	dateTime->date.Day.ByteValue	= RTCVALL;
+	dateTime->date.Month.ByteValue	= RTCVALH;
+	dateTime->time.Hour.ByteValue	= RTCVALL;
+	dateTime->weekday				= RTCVALH;
+	dateTime->time.Second.ByteValue	= RTCVALL;
+	dateTime->time.Minute.ByteValue	= RTCVALH;
 	//RTCCFGbits.RTCWREN = false;
 }
 
 // DEBUG FUNCTIONS-------------------------------------------------------------
 #ifdef DEV_MODE_DEBUG
 
-void TestFunc1(void) {
-	/*LinkedList_16Element_Initialize(&_list);
-
-	LinkedListInsert(&_list, _list.last, (void*) 'J', false);
-	LinkedListInsert(&_list, _list.last, (void*) 'o', false);
-	LinkedListInsert(&_list, _list.last, (void*) 'h', false);
-	LinkedListInsert(&_list, _list.last, (void*) 'n', false);
-	LinkedListInsert(&_list, _list.last, (void*) 'a', false);
-	LinkedListInsert(&_list, _list.last, (void*) 't', false);
-	LinkedListInsert(&_list, _list.last, (void*) 'h', false);
-	LinkedListInsert(&_list, _list.last, (void*) 'a', false);
-	LinkedListInsert(&_list, _list.last, (void*) 'n', false);
-	LinkedListInsert(&_list, _list.last, (void*) 'R', false);
-	LinkedListInsert(&_list, _list.last, (void*) 'u', false);
-	LinkedListInsert(&_list, _list.last, (void*) 'i', false);
-	LinkedListInsert(&_list, _list.last, (void*) 's', false);
-	LinkedListInsert(&_list, _list.last, (void*) 'i', false);
-	LinkedListInsert(&_list, _list.last, (void*) '!', false);
-	LinkedListInsert(&_list, _list.last, (void*) '?', false);
-	CommPrintLinkedListInfo(&_list, &_comm2);
-	CommPutString(&_comm2, "        ");
-	CommPutLinkedListChars(&_list, &_comm2);
-	CommPutNewline(&_comm2);
-	CommPutNewline(&_comm2);
-
-	LinkedListRemove(&_list, LinkedListFindFirst(&_list, (void*) 'h'));
-	LinkedListRemove(&_list, LinkedListFindFirst(&_list, (void*) '!'));
-	LinkedListRemove(&_list, LinkedListFindFirst(&_list, (void*) '?'));
-	CommPrintLinkedListInfo(&_list, &_comm2);
-	CommPutString(&_comm2, "        ");
-	CommPutLinkedListChars(&_list, &_comm2);
-	CommPutNewline(&_comm2);
-	CommPutNewline(&_comm2);
-
-	LinkedListReplace(&_list, LinkedListFindLast(&_list, (void*) 'n'), (void*) '.');
-	LinkedListRemove(&_list, LinkedListFindFirst(&_list, (void*) 'a'));
-	LinkedListRemove(&_list, LinkedListFindFirst(&_list, (void*) 't'));
-	LinkedListRemove(&_list, LinkedListFindFirst(&_list, (void*) 'h'));
-	LinkedListRemove(&_list, LinkedListFindFirst(&_list, (void*) 'a'));
-	CommPrintLinkedListInfo(&_list, &_comm2);
-	CommPutString(&_comm2, "        ");
-	CommPutLinkedListChars(&_list, &_comm2);
-	CommPutNewline(&_comm2);
-	CommPutNewline(&_comm2);*/ }
+void TestFunc1(void)
+{
+	LED = ~LED;
+}
 
 #endif

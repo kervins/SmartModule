@@ -46,13 +46,11 @@ void ShellLoop(void)
 					ShellParseCommandLine();
 				}*/
 
-#ifdef DEV_MODE_DEBUG
 	if(_shell.result.lastWarning)
 		ShellPrintLastWarning(32, 0);
 
 	if(_shell.result.lastError)
 		ShellPrintLastError(32, 0);
-#endif
 }
 
 // TASK MANAGEMENT-------------------------------------------------------------
@@ -72,7 +70,7 @@ void TaskScheduler(void)
 	&& CURRENT_TASK->timeout > 0
 	&& _tick - CURRENT_TASK->lastRun > CURRENT_TASK->timeout)
 	{
-		_shell.result.values[0] = (unsigned long int) CURRENT_TASK->action;
+		_shell.result.values[0] = (uint32_t) CURRENT_TASK->action;
 		_shell.result.values[1] = _tick - CURRENT_TASK->lastRun;
 		_shell.result.lastError = SHELL_ERROR_TASK_TIMEOUT;
 		goto t_comp;
@@ -212,48 +210,6 @@ void ShellHandleSequence(CommPort* comm)
 	CommResetSequence(comm);
 }
 
-void ShellDequeueLine(ExternalRingBufferU8* source, BufferU8* destination)
-{
-	if(_sram.statusBits.busy)
-	{
-		_shell.result.lastError = SHELL_ERROR_SRAM_BUSY;
-		return;
-	}
-	else if(source->buffer.length == 0)
-	{
-		_shell.result.lastError = SHELL_ERROR_LINE_QUEUE_EMPTY;
-		return;
-	}
-
-	uint24_t address = source->baseAddress + (source->blockSize *  source->buffer.tail);
-	uint8_t length = RingBufferDequeue(&source->buffer);
-
-	if(address > SRAM_CAPACITY)
-	{
-		_shell.result.values[0] = address;
-		_shell.result.values[1] = 0;
-		_shell.result.values[2] = SRAM_CAPACITY;
-		_shell.result.lastError = SHELL_ERROR_ADDRESS_RANGE;
-		return;
-	}
-	else if(length == 0)
-	{
-		_shell.result.values[0] = length;
-		_shell.result.lastError = SHELL_ERROR_ZERO_LENGTH;
-		return;
-	}
-	else if(length > destination->bufferSize)
-	{
-
-		_shell.result.values[0] = length;
-		_shell.result.values[1] = destination->bufferSize;
-		_shell.result.lastWarning = SHELL_WARNING_DATA_TRUNCATED;
-		length = destination->bufferSize;
-	}
-
-	SramRead(address, length, destination);
-}
-
 void ShellPrintBasicLayout(void)
 {
 	// Clear screen
@@ -333,6 +289,14 @@ void ShellPrintLastWarning(unsigned char row, unsigned char col)
 			CommPutChar(_shell.terminal, ')');
 			break;
 		}
+		case SHELL_WARNING_FIFO_BUFFER_OVERWRITE:
+		{
+			ltoa(&valueStr, _shell.result.values[0], 16);
+			CommPutString(_shell.terminal, "The FIFO buffer (0x");
+			CommPutString(_shell.terminal, &valueStr);
+			CommPutString(_shell.terminal, ") is full. At least one value has been overwritten.");
+			break;
+		}
 		default:
 		{
 
@@ -388,12 +352,17 @@ void ShellPrintLastError(unsigned char row, unsigned char col)
 		case SHELL_ERROR_TASK_TIMEOUT:
 		{
 			ltoa(&valueStr, _shell.result.values[0], 16);
-			CommPutString(_shell.terminal, "The task (@ 0x");
+			CommPutString(_shell.terminal, "The task (0x");
 			CommPutString(_shell.terminal, &valueStr);
 			CommPutString(_shell.terminal, ") has timed out after ");
 			ltoa(&valueStr, _shell.result.values[1], 10);
 			CommPutString(_shell.terminal, &valueStr);
 			CommPutString(_shell.terminal, "ms");
+			break;
+		}
+		case SHELL_ERROR_NULL_REFERENCE:
+		{
+			CommPutString(_shell.terminal, "NULL reference");
 			break;
 		}
 		default:
@@ -403,6 +372,51 @@ void ShellPrintLastError(unsigned char row, unsigned char col)
 		}
 	}
 	_shell.result.lastError = 0;
+}
+
+void ShellDequeueLine(ExternalRingBufferU8* source, BufferU8* destination)
+{
+	if(_sram.statusBits.busy)
+	{
+		_shell.result.lastError = SHELL_ERROR_SRAM_BUSY;
+		return;
+	}
+
+	if(source->buffer.length == 0)
+	{
+		_shell.result.lastError = SHELL_ERROR_LINE_QUEUE_EMPTY;
+		return;
+	}
+
+	uint24_t address = source->baseAddress + (source->blockSize *  source->buffer.tail);
+	uint8_t length = RingBufferDequeue(&source->buffer);
+
+	if(address > SRAM_CAPACITY)
+	{
+		_shell.result.values[0] = address;
+		_shell.result.values[1] = 0;
+		_shell.result.values[2] = SRAM_CAPACITY;
+		_shell.result.lastError = SHELL_ERROR_ADDRESS_RANGE;
+		return;
+	}
+
+	if(length == 0)
+	{
+		_shell.result.values[0] = length;
+		_shell.result.lastError = SHELL_ERROR_ZERO_LENGTH;
+		return;
+	}
+
+	if(length > destination->bufferSize)
+	{
+
+		_shell.result.values[0] = length;
+		_shell.result.values[1] = destination->bufferSize;
+		_shell.result.lastWarning = SHELL_WARNING_DATA_TRUNCATED;
+		length = destination->bufferSize;
+	}
+
+	SramRead(address, length, destination);
 }
 
 // COMMANDS (TERMINAL OUTPUT)--------------------------------------------------
@@ -425,7 +439,7 @@ bool ShellPrintDateTime(void)
 
 	// Weekday
 	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_DATE.y, COORD_VALUE_DATE.x);
-	switch(dt.Weekday)
+	switch(dt.weekday)
 	{
 		case SUNDAY:
 			CommPutString(port, "Sun ");
@@ -451,25 +465,25 @@ bool ShellPrintDateTime(void)
 	}
 
 	// Date
-	CommPutChar(port, '0' + dt.Month.Tens);
-	CommPutChar(port, '0' + dt.Month.Ones);
+	CommPutChar(port, '0' + dt.date.Month.Tens);
+	CommPutChar(port, '0' + dt.date.Month.Ones);
 	CommPutChar(port, '/');
-	CommPutChar(port, '0' + dt.Day.Tens);
-	CommPutChar(port, '0' + dt.Day.Ones);
+	CommPutChar(port, '0' + dt.date.Day.Tens);
+	CommPutChar(port, '0' + dt.date.Day.Ones);
 	CommPutChar(port, '/');
-	CommPutChar(port, '0' + dt.Year.Tens);
-	CommPutChar(port, '0' + dt.Year.Ones);
+	CommPutChar(port, '0' + dt.date.Year.Tens);
+	CommPutChar(port, '0' + dt.date.Year.Ones);
 
 	// Time
 	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_TIME.y, COORD_VALUE_TIME.x);
-	CommPutChar(port, '0' + dt.Hour.Tens);
-	CommPutChar(port, '0' + dt.Hour.Ones);
+	CommPutChar(port, '0' + dt.time.Hour.Tens);
+	CommPutChar(port, '0' + dt.time.Hour.Ones);
 	CommPutChar(port, ':');
-	CommPutChar(port, '0' + dt.Minute.Tens);
-	CommPutChar(port, '0' + dt.Minute.Ones);
+	CommPutChar(port, '0' + dt.time.Minute.Tens);
+	CommPutChar(port, '0' + dt.time.Minute.Ones);
 	CommPutChar(port, ':');
-	CommPutChar(port, '0' + dt.Second.Tens);
-	CommPutChar(port, '0' + dt.Second.Ones);
+	CommPutChar(port, '0' + dt.time.Second.Tens);
+	CommPutChar(port, '0' + dt.time.Second.Ones);
 	return true;
 }
 

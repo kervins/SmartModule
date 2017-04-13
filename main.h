@@ -8,10 +8,9 @@
 #define MAIN_H
 
 #include "utility.h"
-#include "sram.h"
 
 // DEVELOPMENT MODE DEFINITION-------------------------------------------------
-#define	DEV_MODE_DEBUG			// Compile debugging definitions and routines
+//#define	DEV_MODE_DEBUG			// Compile debugging definitions and routines
 
 // DEFINITIONS (OSCILLATOR)----------------------------------------------------
 #define	FOSC	48000000L	// PLL generated system clock frequency	(48 MHz)
@@ -54,6 +53,7 @@
 #define COMM2_LINE_QUEUE_SIZE	16
 #define COMM1_LINE_QUEUE_ADDR	0x00000
 #define COMM2_LINE_QUEUE_ADDR	0x01000
+#define DATA_LOAD_ADDR			0x02000
 
 // DEFINITIONS (OTHER)---------------------------------------------------------
 #define FIRMWARE_VERSION	1.00
@@ -96,9 +96,9 @@ void TestFunc1(void);
  *			0000000000000000
  *			0000000000000000
  *			________________
- * 0x00000:	................
- * 0x01000: ................
- * 0x02000: ................
+ * 0x00000:	1111111111111111	<-- Comm1 Line Buffer
+ * 0x01000: 2222222222222222	<-- Comm2 Line Buffer
+ * 0x02000: LLLLLLLLLLLLLLLL	<-- Load Measurements
  * 0x03000: ................
  * 0x04000: ................
  * 0x05000: ................
@@ -126,6 +126,6 @@ void TestFunc1(void);
  * 0x1B000: ................
  * 0x1C000: ................
  * 0x1D000: ................
- * 0x1E000: 1111111111111111	<-- Comm1 Line Buffer
- * 0x1F000: 2222222222222222	<-- Comm2 Line Buffer
+ * 0x1E000: ................
+ * 0x1F000: ................
  */

@@ -20,6 +20,7 @@
 // DEFINITIONS (WARNINGS & ERRORS)---------------------------------------------
 // Warnings
 #define SHELL_WARNING_DATA_TRUNCATED			1
+#define SHELL_WARNING_FIFO_BUFFER_OVERWRITE		2
 // Errors
 #define SHELL_ERROR_SRAM_BUSY					1
 #define SHELL_ERROR_ZERO_LENGTH					2
@@ -27,6 +28,7 @@
 #define SHELL_ERROR_LINE_QUEUE_EMPTY			4
 #define SHELL_ERROR_COMMAND_NOT_RECOGNIZED		5
 #define SHELL_ERROR_TASK_TIMEOUT				6
+#define SHELL_ERROR_NULL_REFERENCE				7
 
 // MACROS----------------------------------------------------------------------
 #define CURRENT_TASK ((Task*) _shell.task.current->data)
@@ -129,10 +131,10 @@ void ShellInitialize(CommPort* serverComm, CommPort* terminalComm,
 					 unsigned int swapBufferSize, char* swapBufferData);
 void ShellParseCommandLine(void);
 void ShellHandleSequence(CommPort* comm);
-void ShellDequeueLine(ExternalRingBufferU8* source, BufferU8* destination);
 void ShellPrintBasicLayout(void);
 void ShellPrintLastWarning(unsigned char row, unsigned char col);
 void ShellPrintLastError(unsigned char row, unsigned char col);
+void ShellDequeueLine(ExternalRingBufferU8* source, BufferU8* destination);
 // Commands
 bool ShellWaitText(void);
 bool ShellPrintTick(void);

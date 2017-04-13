@@ -8,6 +8,7 @@
 #define SERIAL_COMM_H
 
 #include "utility.h"
+#include "buffer.h"
 #include "linked_list.h"
 
 // MACROS (Calculates SPBRG values for USART baud rate generator)--------------

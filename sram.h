@@ -7,7 +7,7 @@
 #ifndef SRAM_H
 #define SRAM_H
 
-#include "utility.h"
+#include "buffer.h"
 
 // DEFINITIONS-----------------------------------------------------------------
 // Commands
@@ -87,6 +87,16 @@ typedef struct Sram
 	unsigned short long int writeAddress;
 	unsigned long int startTime;
 } Sram;
+
+typedef struct MemoryAddressRingBuffer
+{
+	unsigned int blockSize;
+	unsigned int maxBlockCount;
+	unsigned short long int baseAddress;
+	unsigned short long int length;
+	unsigned short long int head;
+	unsigned short long int tail;
+} MemoryAddressRingBuffer;
 
 // GLOBAL VARIABLES------------------------------------------------------------
 extern volatile Sram _sram;
