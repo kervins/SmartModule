@@ -124,6 +124,7 @@ static const char* at_cipdinfo			= "AT+CIPDINFO";		// Show remote IP and remote 
 extern WifiInfo _wifi;
 
 // FUNCTION PROTOTYPES---------------------------------------------------------
+// ESP8266 Control
 void WifiReset(void);
 void WifiHandleBoot(void);
 void UpdateWifi(void);

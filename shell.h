@@ -9,6 +9,7 @@
 
 #include "serial_comm.h"
 #include "linked_list.h"
+#include "utility.h"
 
 // DEFINITIONS-----------------------------------------------------------------
 #define SHELL_MAX_RESULT_VALUES	4
@@ -32,22 +33,28 @@
 
 // TYPE DEFINITIONS------------------------------------------------------------
 
-typedef enum
-{
-	TASK_FLAG_EXCLUSIVE	= 1,
-	TASK_FLAG_INFINITE	= 2,
-	TASK_FLAG_PERIODIC	= 4
-} TaskModeFlags;
-
 typedef struct Task
 {
-	Action action;
+	B_Action action;
 	void* params[4];
 	unsigned int runsRemaining;
 	unsigned long int lastRun;
 	unsigned long int runInterval;
 	unsigned long int timeout;
-	TaskModeFlags mode;
+
+	union
+	{
+
+		struct
+		{
+			unsigned modeExclusive : 1;
+			unsigned modeInfinite : 1;
+			unsigned modePeriodic : 1;
+			unsigned busy : 1;
+			unsigned : 4;
+		} statusBits;
+		unsigned char status;
+	} ;
 } Task;
 
 typedef struct Shell
@@ -83,22 +90,52 @@ typedef struct Shell
 
 // GLOBAL VARIABLES------------------------------------------------------------
 extern Shell _shell;
-extern const unsigned short long int shellCommandAddress;
+const struct Point COORD_LABEL_UPTIME		= {52, 1};
+const struct Point COORD_LABEL_NAME			= {20, 1};
+const struct Point COORD_LABEL_STATUS		= {37, 1};
+const struct Point COORD_LABEL_SSID			= {14, 2};
+const struct Point COORD_LABEL_HOST			= {14, 3};
+const struct Point COORD_LABEL_RELAY		= {14, 5};
+const struct Point COORD_LABEL_PROX			= {15, 6};
+const struct Point COORD_LABEL_TEMP			= {32, 5};
+const struct Point COORD_LABEL_LOAD			= {32, 6};
+const struct Point COORD_LABEL_COMM1		= {1, 9};
+const struct Point COORD_LABEL_COMM2		= {1, 10};
+const struct Point COORD_VALUE_UPTIME		= {52, 2};
+const struct Point COORD_VALUE_DATE			= {0, 5};
+const struct Point COORD_VALUE_TIME			= {5, 6};
+const struct Point COORD_VALUE_SSID_NAME	= {20, 2};
+const struct Point COORD_VALUE_SSID_STATUS	= {37, 2};
+const struct Point COORD_VALUE_HOST_NAME	= {20, 3};
+const struct Point COORD_VALUE_HOST_STATUS	= {37, 3};
+const struct Point COORD_VALUE_RELAY		= {21, 5};
+const struct Point COORD_VALUE_PROX			= {21, 6};
+const struct Point COORD_VALUE_TEMP			= {32, 5};
+const struct Point COORD_VALUE_LOAD			= {32, 6};
+const struct Point COORD_VALUE_COMM1		= {8, 9};
+const struct Point COORD_VALUE_COMM2		= {8, 10};
+const struct Point COORD_VALUE_ERROR		= {1, 32};
 
 // FUNCTION PROTOTYPES---------------------------------------------------------
-// Shell Command Processor
-void ShellCommandProcessor(void);
-void ShellHandleSequence(CommPort* comm);
-void ShellParseCommandLine(void);
+void ShellLoop(void);
+// Task Management
 void TaskScheduler(void);
-// Shell Management Functions
+void ShellAddTask(B_Action action,
+				  unsigned int runCount, unsigned long int runInterval, unsigned long int timeout,
+				  bool isExclusive, bool isInfinite, bool isPeriodic,
+				  unsigned char paramCount, ...);
+// Shell Management
 void ShellInitialize(CommPort* serverComm, CommPort* terminalComm,
 					 unsigned int swapBufferSize, char* swapBufferData);
-void ShellDequeueLine(ExternalLineQueue* source, BufferU8* destination);
-void ShellPrintVersionInfo(void);
-void ShellPrintLastWarning(void);
-void ShellPrintLastError(void);
+void ShellParseCommandLine(void);
+void ShellHandleSequence(CommPort* comm);
+void ShellDequeueLine(ExternalRingBufferU8* source, BufferU8* destination);
+void ShellPrintBasicLayout(void);
+void ShellPrintLastWarning(unsigned char row, unsigned char col);
+void ShellPrintLastError(unsigned char row, unsigned char col);
 // Commands
-void ShellPrintDateTime(void);
+bool ShellWaitText(void);
+bool ShellPrintTick(void);
+bool ShellPrintDateTime(void);
 
 #endif

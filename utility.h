@@ -76,10 +76,19 @@
 
 // DEFINITIONS (ANSI CONTROL SEQUENCES)----------------------------------------
 // Sequences defined here by the terminating character of the sequence
-#define ANSI_CUU	0x41	// Cursor up
-#define ANSI_CUD	0x42	// Cursor down
-#define ANSI_CUF	0x43	// Cursor forward
-#define ANSI_CUB	0x44	// Cursor back
+#define ANSI_CUU	0x41	// Cursor up						(Opt Param:	#lines)
+#define ANSI_CUD	0x42	// Cursor down						(Opt Param:	#lines)
+#define ANSI_CUF	0x43	// Cursor forward					(Opt Param:	#chars)
+#define ANSI_CUB	0x44	// Cursor back						(Opt Param:	#chars)
+#define ANSI_CPOS	0x48	// Set cursor position				(Param:	Line;Column) [omit params for cursor = 0,0]
+#define ANSI_SCPOS	0x73	// Save cursor position
+#define ANSI_RCPOS	0x75	// Restore cursor position
+#define ANSI_EDISP	0x4A	// Clear screen from cursor down
+// Clear screen from cursor up		(Param:	1)
+// Clear entire screen				(Param:	2)
+#define ANSI_ELINE	0x4B	// Clear line from cursor right
+// Clear line from cursor left		(Param:	1)
+// Clear entire line				(Param:	2)
 
 // FUNCTION POINTERS-----------------------------------------------------------
 typedef void (*Action)(void) ;
@@ -186,6 +195,12 @@ typedef struct FileDescriptor
 	unsigned short long int length;
 	unsigned short long int address;
 } FileDescriptor;
+
+typedef struct Point
+{
+	unsigned char x;
+	unsigned char y;
+} Point;
 
 // FUNCTION PROTOTYPES---------------------------------------------------------
 // Buffer

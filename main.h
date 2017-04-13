@@ -8,6 +8,7 @@
 #define MAIN_H
 
 #include "utility.h"
+#include "sram.h"
 
 // DEVELOPMENT MODE DEFINITION-------------------------------------------------
 #define	DEV_MODE_DEBUG			// Compile debugging definitions and routines
@@ -39,23 +40,20 @@
 #define PC_TX			PORTCbits.RP12
 #define WIFI_RX			PORTCbits.TX1
 #define WIFI_TX			PORTCbits.RX1
-#define DEBUG0			LATAbits.LATA0
-#define DEBUG1			LATAbits.LATA1
-#define DEBUG2			LATAbits.LATA2
-#define DEBUG3			LATAbits.LATA3
+//#define DEBUG0			LATAbits.LATA0
+//#define DEBUG1			LATAbits.LATA1
+//#define DEBUG2			LATAbits.LATA2
+//#define DEBUG3			LATAbits.LATA3
 
 // DEFINITIONS (DATA)----------------------------------------------------------
+#define PERF_COUNTER_ARRAY_SIZE	10
 #define TX_BUFFER_SIZE			64
 #define RX_BUFFER_SIZE			256
 #define LINE_BUFFER_SIZE		RX_BUFFER_SIZE
 #define COMM1_LINE_QUEUE_SIZE	16
 #define COMM2_LINE_QUEUE_SIZE	16
-#define CMD_HIST_STACK_SIZE		16
-#define COMM1_LINE_QUEUE_ADDR	0x1D000
-#define COMM2_LINE_QUEUE_ADDR	0x1E000
-#define CMD_HIST_STACK_ADDR		0x1F000
-#define SHELL_TASKACTION_ADDR	0x00000
-#define SHELL_TASKACTION_SIZE	24		// Size of the TaskAction structure (in bytes)
+#define COMM1_LINE_QUEUE_ADDR	0x00000
+#define COMM2_LINE_QUEUE_ADDR	0x01000
 
 // DEFINITIONS (OTHER)---------------------------------------------------------
 #define FIRMWARE_VERSION	1.00

@@ -33,7 +33,6 @@ const CommDataRegisters _comm1Regs = {&TXREG1, (TXSTAbits_t*) & TXSTA1, &PIE1, 4
 const CommDataRegisters _comm2Regs = {&TXREG2, (TXSTAbits_t*) & TXSTA2, &PIE3, 4};
 WifiInfo _wifi;
 Shell _shell;
-const uint24_t shellCommandAddress = 0;
 
 // PROGRAM ENTRY---------------------------------------------------------------
 
@@ -50,26 +49,23 @@ void main(void)
 	ConfigureInterrupts();
 	ConfigureOS();
 
+	uint32_t prevTick = 0;
+
 	// Main program loop
-	while(true)
-	{
-#ifdef DEV_MODE_DEBUG
-		DEBUG2 = ~DEBUG2;
-#endif
-		// BUTTON------------------------------------------
-		UpdateButton(&_button);
+main_loop:
+	// BUTTON------------------------------------------
+	UpdateButton(&_button);
 
-		// USART-------------------------------------------
-		UpdateCommPort(&_comm1);
-		UpdateCommPort(&_comm2);
+	// USART-------------------------------------------
+	UpdateCommPort(&_comm1);
+	UpdateCommPort(&_comm2);
 
-		// WIFI--------------------------------------------
-		UpdateWifi();
+	// WIFI--------------------------------------------
+	UpdateWifi();
 
-		// SHELL-------------------------------------------
-		ShellCommandProcessor();
-	}
-	return;
+	// SHELL-------------------------------------------
+	ShellLoop();
+	goto main_loop;
 }
 
 // INITIALIZATION--------------------------------------------------------------
@@ -275,16 +271,17 @@ void ConfigureOS(void)
 					COMM1_LINE_QUEUE_ADDR, COMM1_LINE_QUEUE_SIZE, &lineQueueData1,
 					NEWLINE_CRLF, NEWLINE_CRLF,
 					&_comm1Regs,
-					false, false);
+					false, false,
+					COORD_VALUE_COMM1.y, COORD_VALUE_COMM1.x);
 	CommPortInitialize(&_comm2,
 					TX_BUFFER_SIZE, RX_BUFFER_SIZE, LINE_BUFFER_SIZE,
 					&txData2, &rxData2, &lineData2,
 					COMM2_LINE_QUEUE_ADDR, COMM2_LINE_QUEUE_SIZE, &lineQueueData2,
 					NEWLINE_CRLF, NEWLINE_CR,
 					&_comm2Regs,
-					true, true);
-	_comm1.modeBits.echoNewline = false;
-	_comm2.modeBits.echoNewline = false;
+					true, false,
+					COORD_VALUE_COMM2.y, COORD_VALUE_COMM2.x);
+	_comm2.modeBits.echoRx = true;
 	ButtonInfoInitialize(&_button, ButtonPress, ButtonHold, ButtonRelease, 0);
 	SramStatusInitialize();
 	ShellInitialize(&_comm1, &_comm2, LINE_BUFFER_SIZE, swapData);
@@ -308,21 +305,13 @@ void ConfigureOS(void)
 
 	// Start tick timer (Timer 4)
 	T4CONbits.TMR4ON = true;
-
-	// Create tasks
-	Task newTask;
-	newTask.action = ShellPrintDateTime;
-	newTask.params[0] = _shell.terminal;
-	newTask.mode = TASK_FLAG_INFINITE | TASK_FLAG_PERIODIC;
-	newTask.runInterval = 1000;
-	LinkedListInsert(&_shell.task.list, _shell.task.list.last, &newTask, false);
 }
 
 // BUTTON ACTIONS--------------------------------------------------------------
 
 void ButtonPress(void)
 {
-	srand(_tick);	// Just about the only source of entropy we have is the damn button!
+	;
 }
 
 void ButtonHold(void)

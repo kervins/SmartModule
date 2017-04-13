@@ -23,11 +23,14 @@ void CommPortInitialize(CommPort* comm,
 						uint24_t lineQueueBaseAddress, uint16_t lineQueueSize, uint8_t* lineQueueData,
 						NewlineFlags txNewline, NewlineFlags rxNewline,
 						const CommDataRegisters* registers,
-						bool enableFlowControl, bool enableEcho)
+						bool enableFlowControl, bool enableEcho,
+						unsigned char echoRow, unsigned char echoColumn)
 {
 	comm->status = enableFlowControl ? 0x3 : 0x0;	// Enable TX and RX flow control
 	comm->mode = enableEcho ? 0x7 : 0x0;			// Enable character, newline, and sequence echo
 	comm->modeBits.useExternalBuffer = true;
+	comm->cursor.x = echoColumn;
+	comm->cursor.y = echoRow;
 	comm->newline.tx = txNewline;
 	comm->newline.rx = rxNewline;
 	comm->newline.inProgress = 0;
@@ -36,7 +39,7 @@ void CommPortInitialize(CommPort* comm,
 	comm->sequence.terminator = 0;
 	comm->external.baseAddress = lineQueueBaseAddress;
 	comm->external.blockSize = lineBufferSize;
-	RingBufferCreate(&comm->external.lineQueue, lineQueueSize, lineQueueData);
+	RingBufferCreate(&comm->external.buffer, lineQueueSize, lineQueueData);
 	RingBufferCreate(&comm->buffers.tx, txBufferSize, txData);
 	RingBufferCreate(&comm->buffers.rx, rxBufferSize, rxData);
 	BufferU8Create(&comm->buffers.line, lineBufferSize, lineData);
@@ -58,7 +61,7 @@ void UpdateCommPort(CommPort* comm)
 
 	// Only continue if all events have been handled
 	if(comm->statusBits.hasSequence
-	|| comm->external.lineQueue.length == comm->external.lineQueue.bufferSize
+	|| comm->external.buffer.length == comm->external.buffer.bufferSize
 	|| (!comm->modeBits.useExternalBuffer && comm->statusBits.hasLine))
 		return;
 
@@ -123,8 +126,6 @@ void UpdateCommPort(CommPort* comm)
 			{
 				if(comm->buffers.line.length)
 					comm->buffers.line.length--;
-				if(comm->modeBits.echoRx)
-					CommPutChar(comm, ch);
 				break;
 			}
 			case ASCII_LF:
@@ -157,7 +158,14 @@ void UpdateCommPort(CommPort* comm)
 		// Backspace characters will be echoed if the line buffer is not empty
 		// (printable characters will be echoed iff received outside of an escape sequence)
 		if(comm->modeBits.echoRx)
+		{
+			while(comm->buffers.tx.length || !(*comm->registers->pTxSta).TRMT)
+				continue;
+			CommPutSequence(comm, ANSI_SCPOS, 0);
+			CommPutSequence(comm, ANSI_CPOS, 2, comm->cursor.y, comm->cursor.x + comm->buffers.line.length - 1);
 			CommPutChar(comm, ch);
+			CommPutSequence(comm, ANSI_RCPOS, 0);
+		}
 	}
 
 	// If the line buffer is full, flush the line to external RAM (or set hasLine flag if not using external RAM)
@@ -168,7 +176,15 @@ void UpdateCommPort(CommPort* comm)
 			comm->buffers.line.data[comm->buffers.line.bufferSize - 1] = ASCII_NUL;
 
 			if(comm->modeBits.echoNewline)
+			{
+				while(comm->buffers.tx.length || !(*comm->registers->pTxSta).TRMT)
+					continue;
+				comm->cursor.y++;
+				CommPutSequence(comm, ANSI_SCPOS, 0);
+				CommPutSequence(comm, ANSI_CPOS, 2, comm->cursor.y, comm->cursor.x);
 				CommPutNewline(comm);
+				CommPutSequence(comm, ANSI_RCPOS, 0);
+			}
 		}
 
 		if(comm->modeBits.useExternalBuffer)
@@ -190,24 +206,30 @@ void UpdateCommPort(CommPort* comm)
 
 		// If enabled, echo the newline sequence
 		if(comm->modeBits.echoNewline)
+		{
+			while(comm->buffers.tx.length || !(*comm->registers->pTxSta).TRMT)
+				continue;
+			comm->cursor.y++;
+			CommPutSequence(comm, ANSI_SCPOS, 0);
+			CommPutSequence(comm, ANSI_CPOS, 2, comm->cursor.y, comm->cursor.x);
 			CommPutNewline(comm);
+			CommPutSequence(comm, ANSI_RCPOS, 0);
+		}
 	}
 }
 
 void CommFlushLineBuffer(CommPort* comm)
 {
-
 	while(_sram.statusBits.busy)
 		continue;
-	RingBufferEnqueue(&comm->external.lineQueue, comm->buffers.line.length);
-	SramWrite(comm->external.baseAddress + (comm->external.blockSize *  comm->external.lineQueue.head),
+	RingBufferEnqueue(&comm->external.buffer, comm->buffers.line.length);
+	SramWrite(comm->external.baseAddress + (comm->external.blockSize *  comm->external.buffer.head),
 			&comm->buffers.line);
 	comm->buffers.line.length = 0;
 }
 
 void CommResetSequence(CommPort* comm)
 {
-
 	comm->statusBits.hasSequence = false;
 	comm->sequence.status = 0;
 	comm->sequence.paramCount = 0;
@@ -216,7 +238,6 @@ void CommResetSequence(CommPort* comm)
 
 void CommPutChar(CommPort* comm, char data)
 {
-
 	while(comm->buffers.tx.length == comm->buffers.tx.bufferSize)
 		continue;
 	RingBufferEnqueue(&comm->buffers.tx, data);
@@ -226,7 +247,6 @@ void CommPutChar(CommPort* comm, char data)
 void CommPutString(CommPort* comm, const char* str)
 {
 	uint16_t length;
-
 	for(length = 0; str[length] != ASCII_NUL; length++)
 		CommPutChar(comm, str[length]);
 }
@@ -248,6 +268,59 @@ void CommPutBuffer(CommPort* comm, BufferU8* source)
 		CommPutChar(comm, source->data[i]);
 	}
 	CommPutNewline(comm);
+}
+
+void CommPutSequence(CommPort* comm, unsigned char terminator, unsigned char paramCount, ...)
+{
+	va_list args;
+	unsigned char i;
+	CommPutChar(comm, ASCII_ESC);
+	CommPutChar(comm, '[');
+
+	if(paramCount)
+	{
+		va_start(args, paramCount);
+		for(i = 0; i < paramCount; i++)
+		{
+			unsigned char param = va_arg(args, unsigned char);
+			if(param < 10)
+				CommPutChar(comm, 0x30 + param);
+			else
+			{
+				char numStr[8];
+				itoa(&numStr, param, 10);
+				CommPutString(comm, &numStr);
+			}
+
+			if(i < paramCount - 1)
+				CommPutChar(comm, ';');
+		}
+		va_end(args);
+	}
+	CommPutChar(comm, terminator);
+}
+
+void CommEchoSequence(CommPort* comm)
+{
+	unsigned char i;
+	CommPutChar(comm, ASCII_ESC);
+	CommPutChar(comm, '[');
+
+	for(i = 0; i < comm->sequence.paramCount; i++)
+	{
+		if(comm->sequence.params[i] < 10)
+			CommPutChar(comm, 0x30 + comm->sequence.params[i]);
+		else
+		{
+			char numStr[8];
+			itoa(&numStr, comm->sequence.params[i], 10);
+			CommPutString(comm, &numStr);
+		}
+
+		if(i < comm->sequence.paramCount - 1)
+			CommPutChar(comm, ';');
+	}
+	CommPutChar(comm, comm->sequence.terminator);
 }
 
 // LINKED LIST PRINT FUNCTIONS-------------------------------------------------

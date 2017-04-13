@@ -7,8 +7,8 @@
 #ifndef SERIAL_COMM_H
 #define SERIAL_COMM_H
 
-#include "linked_list.h"
 #include "utility.h"
+#include "linked_list.h"
 
 // MACROS (Calculates SPBRG values for USART baud rate generator)--------------
 // Each definition contains a value that is to be loaded into the BRG registers (SPBRGHx:SPBRGx)
@@ -32,6 +32,7 @@ typedef enum
 } NewlineFlags;
 
 // TYPE DEFINITIONS------------------------------------------------------------
+typedef void (*CommAction)(struct CommPort*) ;
 
 typedef struct CommDataRegisters
 {
@@ -41,12 +42,12 @@ typedef struct CommDataRegisters
 	uint8_t const txieBit;
 } CommDataRegisters;
 
-typedef struct ExternalLineQueue
+typedef struct ExternalRingBufferU8
 {
 	uint24_t baseAddress;
 	uint16_t blockSize;
-	volatile RingBufferU8 lineQueue;
-} ExternalLineQueue;
+	volatile RingBufferU8 buffer;
+} ExternalRingBufferU8;
 
 typedef struct CommPort
 {
@@ -115,7 +116,8 @@ typedef struct CommPort
 		BufferU8 line;
 	} buffers;
 
-	ExternalLineQueue external;
+	Point cursor;
+	ExternalRingBufferU8 external;
 	const CommDataRegisters* registers;
 } CommPort;
 
@@ -126,7 +128,8 @@ void CommPortInitialize(CommPort* comm,
 						uint24_t lineQueueBaseAddress, uint16_t lineQueueSize, uint8_t* lineQueueData,
 						NewlineFlags txNewline, NewlineFlags rxNewline,
 						const CommDataRegisters* registers,
-						bool enableFlowControl, bool enableEcho);
+						bool enableFlowControl, bool enableEcho,
+						unsigned char echoRow, unsigned char echoColumn);
 void UpdateCommPort(CommPort* comm);
 void CommFlushLineBuffer(CommPort* comm);
 void CommResetSequence(CommPort* comm);
@@ -134,6 +137,7 @@ void CommPutChar(CommPort* comm, char data);
 void CommPutString(CommPort* comm, const char* str);
 void CommPutNewline(CommPort* comm);
 void CommPutBuffer(CommPort* comm, BufferU8* source);
+void CommPutSequence(CommPort* comm, unsigned char terminator, unsigned char paramCount, ...);
 // Linked List Print Functions
 void CommPutLinkedListChars(LinkedList_16Element*, CommPort*);
 void CommPrintLinkedListInfo(LinkedList_16Element*, CommPort*);
