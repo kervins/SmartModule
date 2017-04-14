@@ -114,7 +114,7 @@ typedef struct CommPort
 	{
 		volatile RingBufferU8 tx;
 		volatile RingBufferU8 rx;
-		BufferU8 line;
+		Buffer line;
 	} buffers;
 
 	Point cursor;
@@ -139,7 +139,6 @@ void CommResetSequence(CommPort* comm);
 void CommPutChar(CommPort* comm, char data);
 void CommPutString(CommPort* comm, const char* str);
 void CommPutNewline(CommPort* comm);
-void CommPutBuffer(CommPort* comm, BufferU8* source);
 void CommPutSequence(CommPort* comm, unsigned char terminator, unsigned char paramCount, ...);
 
 #endif

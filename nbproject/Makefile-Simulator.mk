@@ -51,17 +51,17 @@ OBJECTDIR=build/${CND_CONF}/${IMAGE_TYPE}
 DISTDIR=dist/${CND_CONF}/${IMAGE_TYPE}
 
 # Source Files Quoted if spaced
-SOURCEFILES_QUOTED_IF_SPACED=config.c main.c interrupt.c button.c sram.c serial_comm.c wifi.c shell.c utility.c linked_list.c
+SOURCEFILES_QUOTED_IF_SPACED=config.c main.c interrupt.c button.c sram.c serial_comm.c wifi.c shell.c linked_list.c buffer.c
 
 # Object Files Quoted if spaced
-OBJECTFILES_QUOTED_IF_SPACED=${OBJECTDIR}/config.p1 ${OBJECTDIR}/main.p1 ${OBJECTDIR}/interrupt.p1 ${OBJECTDIR}/button.p1 ${OBJECTDIR}/sram.p1 ${OBJECTDIR}/serial_comm.p1 ${OBJECTDIR}/wifi.p1 ${OBJECTDIR}/shell.p1 ${OBJECTDIR}/utility.p1 ${OBJECTDIR}/linked_list.p1
-POSSIBLE_DEPFILES=${OBJECTDIR}/config.p1.d ${OBJECTDIR}/main.p1.d ${OBJECTDIR}/interrupt.p1.d ${OBJECTDIR}/button.p1.d ${OBJECTDIR}/sram.p1.d ${OBJECTDIR}/serial_comm.p1.d ${OBJECTDIR}/wifi.p1.d ${OBJECTDIR}/shell.p1.d ${OBJECTDIR}/utility.p1.d ${OBJECTDIR}/linked_list.p1.d
+OBJECTFILES_QUOTED_IF_SPACED=${OBJECTDIR}/config.p1 ${OBJECTDIR}/main.p1 ${OBJECTDIR}/interrupt.p1 ${OBJECTDIR}/button.p1 ${OBJECTDIR}/sram.p1 ${OBJECTDIR}/serial_comm.p1 ${OBJECTDIR}/wifi.p1 ${OBJECTDIR}/shell.p1 ${OBJECTDIR}/linked_list.p1 ${OBJECTDIR}/buffer.p1
+POSSIBLE_DEPFILES=${OBJECTDIR}/config.p1.d ${OBJECTDIR}/main.p1.d ${OBJECTDIR}/interrupt.p1.d ${OBJECTDIR}/button.p1.d ${OBJECTDIR}/sram.p1.d ${OBJECTDIR}/serial_comm.p1.d ${OBJECTDIR}/wifi.p1.d ${OBJECTDIR}/shell.p1.d ${OBJECTDIR}/linked_list.p1.d ${OBJECTDIR}/buffer.p1.d
 
 # Object Files
-OBJECTFILES=${OBJECTDIR}/config.p1 ${OBJECTDIR}/main.p1 ${OBJECTDIR}/interrupt.p1 ${OBJECTDIR}/button.p1 ${OBJECTDIR}/sram.p1 ${OBJECTDIR}/serial_comm.p1 ${OBJECTDIR}/wifi.p1 ${OBJECTDIR}/shell.p1 ${OBJECTDIR}/utility.p1 ${OBJECTDIR}/linked_list.p1
+OBJECTFILES=${OBJECTDIR}/config.p1 ${OBJECTDIR}/main.p1 ${OBJECTDIR}/interrupt.p1 ${OBJECTDIR}/button.p1 ${OBJECTDIR}/sram.p1 ${OBJECTDIR}/serial_comm.p1 ${OBJECTDIR}/wifi.p1 ${OBJECTDIR}/shell.p1 ${OBJECTDIR}/linked_list.p1 ${OBJECTDIR}/buffer.p1
 
 # Source Files
-SOURCEFILES=config.c main.c interrupt.c button.c sram.c serial_comm.c wifi.c shell.c utility.c linked_list.c
+SOURCEFILES=config.c main.c interrupt.c button.c sram.c serial_comm.c wifi.c shell.c linked_list.c buffer.c
 
 
 CFLAGS=
@@ -151,14 +151,6 @@ ${OBJECTDIR}/shell.p1: shell.c  nbproject/Makefile-${CND_CONF}.mk
 	@-${MV} ${OBJECTDIR}/shell.d ${OBJECTDIR}/shell.p1.d 
 	@${FIXDEPS} ${OBJECTDIR}/shell.p1.d $(SILENT) -rsi ${MP_CC_DIR}../  
 	
-${OBJECTDIR}/utility.p1: utility.c  nbproject/Makefile-${CND_CONF}.mk
-	@${MKDIR} "${OBJECTDIR}" 
-	@${RM} ${OBJECTDIR}/utility.p1.d 
-	@${RM} ${OBJECTDIR}/utility.p1 
-	${MP_CC} --pass1 $(MP_EXTRA_CC_PRE) --chip=$(MP_PROCESSOR_OPTION) -Q -G  -D__DEBUG=1 --debugger=none  --double=24 --float=24 --emi=byteselect --opt=none --addrqual=require -P -N255 --warn=0 --asmlist -DXPRJ_Simulator=$(CND_CONF)  --summary=default,+psect,-class,+mem,-hex,+file --output=default,-inhx032 --runtime=default,+clear,+init,+keep,-no_startup,-download,+config,+clib,+plib $(COMPARISON_BUILD)  --output=-mcof,+elf:multilocs --stack=compiled:auto:auto:auto "--errformat=%f:%l: error: (%n) %s" "--warnformat=%f:%l: warning: (%n) %s" "--msgformat=%f:%l: advisory: (%n) %s" --MSGDISABLE=350    -o${OBJECTDIR}/utility.p1  utility.c 
-	@-${MV} ${OBJECTDIR}/utility.d ${OBJECTDIR}/utility.p1.d 
-	@${FIXDEPS} ${OBJECTDIR}/utility.p1.d $(SILENT) -rsi ${MP_CC_DIR}../  
-	
 ${OBJECTDIR}/linked_list.p1: linked_list.c  nbproject/Makefile-${CND_CONF}.mk
 	@${MKDIR} "${OBJECTDIR}" 
 	@${RM} ${OBJECTDIR}/linked_list.p1.d 
@@ -166,6 +158,14 @@ ${OBJECTDIR}/linked_list.p1: linked_list.c  nbproject/Makefile-${CND_CONF}.mk
 	${MP_CC} --pass1 $(MP_EXTRA_CC_PRE) --chip=$(MP_PROCESSOR_OPTION) -Q -G  -D__DEBUG=1 --debugger=none  --double=24 --float=24 --emi=byteselect --opt=none --addrqual=require -P -N255 --warn=0 --asmlist -DXPRJ_Simulator=$(CND_CONF)  --summary=default,+psect,-class,+mem,-hex,+file --output=default,-inhx032 --runtime=default,+clear,+init,+keep,-no_startup,-download,+config,+clib,+plib $(COMPARISON_BUILD)  --output=-mcof,+elf:multilocs --stack=compiled:auto:auto:auto "--errformat=%f:%l: error: (%n) %s" "--warnformat=%f:%l: warning: (%n) %s" "--msgformat=%f:%l: advisory: (%n) %s" --MSGDISABLE=350    -o${OBJECTDIR}/linked_list.p1  linked_list.c 
 	@-${MV} ${OBJECTDIR}/linked_list.d ${OBJECTDIR}/linked_list.p1.d 
 	@${FIXDEPS} ${OBJECTDIR}/linked_list.p1.d $(SILENT) -rsi ${MP_CC_DIR}../  
+	
+${OBJECTDIR}/buffer.p1: buffer.c  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} "${OBJECTDIR}" 
+	@${RM} ${OBJECTDIR}/buffer.p1.d 
+	@${RM} ${OBJECTDIR}/buffer.p1 
+	${MP_CC} --pass1 $(MP_EXTRA_CC_PRE) --chip=$(MP_PROCESSOR_OPTION) -Q -G  -D__DEBUG=1 --debugger=none  --double=24 --float=24 --emi=byteselect --opt=none --addrqual=require -P -N255 --warn=0 --asmlist -DXPRJ_Simulator=$(CND_CONF)  --summary=default,+psect,-class,+mem,-hex,+file --output=default,-inhx032 --runtime=default,+clear,+init,+keep,-no_startup,-download,+config,+clib,+plib $(COMPARISON_BUILD)  --output=-mcof,+elf:multilocs --stack=compiled:auto:auto:auto "--errformat=%f:%l: error: (%n) %s" "--warnformat=%f:%l: warning: (%n) %s" "--msgformat=%f:%l: advisory: (%n) %s" --MSGDISABLE=350    -o${OBJECTDIR}/buffer.p1  buffer.c 
+	@-${MV} ${OBJECTDIR}/buffer.d ${OBJECTDIR}/buffer.p1.d 
+	@${FIXDEPS} ${OBJECTDIR}/buffer.p1.d $(SILENT) -rsi ${MP_CC_DIR}../  
 	
 else
 ${OBJECTDIR}/config.p1: config.c  nbproject/Makefile-${CND_CONF}.mk
@@ -232,14 +232,6 @@ ${OBJECTDIR}/shell.p1: shell.c  nbproject/Makefile-${CND_CONF}.mk
 	@-${MV} ${OBJECTDIR}/shell.d ${OBJECTDIR}/shell.p1.d 
 	@${FIXDEPS} ${OBJECTDIR}/shell.p1.d $(SILENT) -rsi ${MP_CC_DIR}../  
 	
-${OBJECTDIR}/utility.p1: utility.c  nbproject/Makefile-${CND_CONF}.mk
-	@${MKDIR} "${OBJECTDIR}" 
-	@${RM} ${OBJECTDIR}/utility.p1.d 
-	@${RM} ${OBJECTDIR}/utility.p1 
-	${MP_CC} --pass1 $(MP_EXTRA_CC_PRE) --chip=$(MP_PROCESSOR_OPTION) -Q -G  --double=24 --float=24 --emi=byteselect --opt=none --addrqual=require -P -N255 --warn=0 --asmlist -DXPRJ_Simulator=$(CND_CONF)  --summary=default,+psect,-class,+mem,-hex,+file --output=default,-inhx032 --runtime=default,+clear,+init,+keep,-no_startup,-download,+config,+clib,+plib $(COMPARISON_BUILD)  --output=-mcof,+elf:multilocs --stack=compiled:auto:auto:auto "--errformat=%f:%l: error: (%n) %s" "--warnformat=%f:%l: warning: (%n) %s" "--msgformat=%f:%l: advisory: (%n) %s" --MSGDISABLE=350    -o${OBJECTDIR}/utility.p1  utility.c 
-	@-${MV} ${OBJECTDIR}/utility.d ${OBJECTDIR}/utility.p1.d 
-	@${FIXDEPS} ${OBJECTDIR}/utility.p1.d $(SILENT) -rsi ${MP_CC_DIR}../  
-	
 ${OBJECTDIR}/linked_list.p1: linked_list.c  nbproject/Makefile-${CND_CONF}.mk
 	@${MKDIR} "${OBJECTDIR}" 
 	@${RM} ${OBJECTDIR}/linked_list.p1.d 
@@ -247,6 +239,14 @@ ${OBJECTDIR}/linked_list.p1: linked_list.c  nbproject/Makefile-${CND_CONF}.mk
 	${MP_CC} --pass1 $(MP_EXTRA_CC_PRE) --chip=$(MP_PROCESSOR_OPTION) -Q -G  --double=24 --float=24 --emi=byteselect --opt=none --addrqual=require -P -N255 --warn=0 --asmlist -DXPRJ_Simulator=$(CND_CONF)  --summary=default,+psect,-class,+mem,-hex,+file --output=default,-inhx032 --runtime=default,+clear,+init,+keep,-no_startup,-download,+config,+clib,+plib $(COMPARISON_BUILD)  --output=-mcof,+elf:multilocs --stack=compiled:auto:auto:auto "--errformat=%f:%l: error: (%n) %s" "--warnformat=%f:%l: warning: (%n) %s" "--msgformat=%f:%l: advisory: (%n) %s" --MSGDISABLE=350    -o${OBJECTDIR}/linked_list.p1  linked_list.c 
 	@-${MV} ${OBJECTDIR}/linked_list.d ${OBJECTDIR}/linked_list.p1.d 
 	@${FIXDEPS} ${OBJECTDIR}/linked_list.p1.d $(SILENT) -rsi ${MP_CC_DIR}../  
+	
+${OBJECTDIR}/buffer.p1: buffer.c  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} "${OBJECTDIR}" 
+	@${RM} ${OBJECTDIR}/buffer.p1.d 
+	@${RM} ${OBJECTDIR}/buffer.p1 
+	${MP_CC} --pass1 $(MP_EXTRA_CC_PRE) --chip=$(MP_PROCESSOR_OPTION) -Q -G  --double=24 --float=24 --emi=byteselect --opt=none --addrqual=require -P -N255 --warn=0 --asmlist -DXPRJ_Simulator=$(CND_CONF)  --summary=default,+psect,-class,+mem,-hex,+file --output=default,-inhx032 --runtime=default,+clear,+init,+keep,-no_startup,-download,+config,+clib,+plib $(COMPARISON_BUILD)  --output=-mcof,+elf:multilocs --stack=compiled:auto:auto:auto "--errformat=%f:%l: error: (%n) %s" "--warnformat=%f:%l: warning: (%n) %s" "--msgformat=%f:%l: advisory: (%n) %s" --MSGDISABLE=350    -o${OBJECTDIR}/buffer.p1  buffer.c 
+	@-${MV} ${OBJECTDIR}/buffer.d ${OBJECTDIR}/buffer.p1.d 
+	@${FIXDEPS} ${OBJECTDIR}/buffer.p1.d $(SILENT) -rsi ${MP_CC_DIR}../  
 	
 endif
 

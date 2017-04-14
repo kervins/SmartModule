@@ -84,9 +84,7 @@ void ButtonRelease(void);
 void SetDateTime(DateTime*);
 void GetDateTime(DateTime*);
 // Debug Functions
-#ifdef DEV_MODE_DEBUG
 void TestFunc1(void);
-#endif
 
 #endif
 

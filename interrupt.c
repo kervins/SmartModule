@@ -37,7 +37,9 @@ void __interrupt(low_priority) isrLowPriority(void)
 		{
 			RAM_CS = 1;
 			if(_sram.statusBits.currentOperation == SRAM_OP_READ)
-				_sram.targetBuffer->length = _sram.dataLength;
+				_sram.targetBuffer->length = _sram.targetBuffer->elementSize == 1
+					? _sram.dataLength
+					: _sram.dataLength / _sram.targetBuffer->elementSize;
 			_sram.statusBits.busy = false;
 		}
 
@@ -68,7 +70,7 @@ void __interrupt(low_priority) isrLowPriority(void)
 	if(PIR1bits.TX1IF)
 	{
 		if(_comm1.buffers.tx.length && !_comm1.statusBits.isTxPaused)
-			TXREG1 = RingBufferDequeue(&_comm1.buffers.tx);
+			TXREG1 = RingBufferU8Dequeue(&_comm1.buffers.tx);
 		else
 			PIE1bits.TX1IE = false;
 	}
@@ -83,7 +85,7 @@ void __interrupt(low_priority) isrLowPriority(void)
 			else if(data == ASCII_XON && _comm1.statusBits.isTxFlowControl)
 				_comm1.statusBits.isTxPaused = false;
 			else
-				RingBufferEnqueue(&_comm1.buffers.rx, data);
+				RingBufferU8Enqueue(&_comm1.buffers.rx, data);
 
 			if(_comm1.statusBits.isRxFlowControl
 			&&!_comm1.statusBits.isRxPaused
@@ -100,7 +102,7 @@ void __interrupt(low_priority) isrLowPriority(void)
 	if(PIR3bits.TX2IF)
 	{
 		if(_comm2.buffers.tx.length && !_comm2.statusBits.isTxPaused)
-			TXREG2 = RingBufferDequeue(&_comm2.buffers.tx);
+			TXREG2 = RingBufferU8Dequeue(&_comm2.buffers.tx);
 		else
 			PIE3bits.TX2IE = false;
 	}
@@ -115,7 +117,7 @@ void __interrupt(low_priority) isrLowPriority(void)
 			else if(data == ASCII_XON && _comm2.statusBits.isTxFlowControl)
 				_comm2.statusBits.isTxPaused = false;
 			else
-				RingBufferEnqueue(&_comm2.buffers.rx, data);
+				RingBufferU8Enqueue(&_comm2.buffers.rx, data);
 
 			if(_comm2.statusBits.isRxFlowControl
 			&&!_comm2.statusBits.isRxPaused

@@ -80,7 +80,7 @@ typedef struct Sram
 		unsigned char status;
 	} ;
 
-	BufferU8* targetBuffer;
+	Buffer* targetBuffer;
 	unsigned short long int dataLength;
 	unsigned short long int bytesRemaining;
 	unsigned short long int readAddress;
@@ -106,8 +106,8 @@ extern volatile Sram _sram;
 void SramStatusInitialize(void);
 // SRAM User Callable Functions
 void SramSetMode(SramMode mode);
-void SramReadBytes(unsigned short long int address, unsigned short long int length, BufferU8* destination);
-void SramWriteBytes(unsigned short long int address, BufferU8* source);
+void SramReadBytes(unsigned short long int address, unsigned short long int length, Buffer* destination);
+void SramWriteBytes(unsigned short long int address, Buffer* source);
 void SramFill(unsigned short long int address, unsigned short long int length, unsigned char value);
 // SRAM Callback Functions
 void _SramOperationStart(void);

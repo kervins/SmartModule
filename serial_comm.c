@@ -41,11 +41,11 @@ void CommPortInitialize(CommPort* comm,
 	comm->sequence.terminator = 0;
 	comm->external.baseAddress = lineQueueBaseAddress;
 	comm->external.blockSize = lineBufferSize;
-	RingBufferCreate(&comm->external.buffer, lineQueueSize, lineQueueData);
-	RingBufferCreate(&comm->buffers.tx, txBufferSize, txData);
-	RingBufferCreate(&comm->buffers.rx, rxBufferSize, rxData);
-	BufferU8Create(&comm->buffers.line, lineBufferSize, lineData);
 	comm->registers = registers;
+	RingBufferU8Create(&comm->external.buffer, lineQueueSize, lineQueueData);
+	RingBufferU8Create(&comm->buffers.tx, txBufferSize, txData);
+	RingBufferU8Create(&comm->buffers.rx, rxBufferSize, rxData);
+	InitializeBuffer(&comm->buffers.line, lineBufferSize, 1, lineData);
 }
 
 void UpdateCommPort(CommPort* comm)
@@ -72,7 +72,7 @@ void UpdateCommPort(CommPort* comm)
 		return;
 
 	// Retrieve the next character from the RX buffer
-	char ch = RingBufferDequeue(&comm->buffers.rx);
+	char ch = RingBufferU8Dequeue(&comm->buffers.rx);
 
 	// If an escape sequence has been initiated,
 	// retrieve parameters until terminating character is received
@@ -153,7 +153,7 @@ void UpdateCommPort(CommPort* comm)
 		comm->newline.inProgress = 0;
 
 		// Add character to the line
-		comm->buffers.line.data[comm->buffers.line.length] = ch;
+		((char*) comm->buffers.line.data)[comm->buffers.line.length] = ch;
 		comm->buffers.line.length++;
 
 		// Echo received character (if enabled)
@@ -171,11 +171,11 @@ void UpdateCommPort(CommPort* comm)
 	}
 
 	// If the line buffer is full, flush the line to external RAM (or set hasLine flag if not using external RAM)
-	if(comm->buffers.line.length == comm->buffers.line.bufferSize)
+	if(comm->buffers.line.length == comm->buffers.line.capacity)
 	{
 		if(!comm->modeBits.isBinaryMode)
 		{
-			comm->buffers.line.data[comm->buffers.line.bufferSize - 1] = ASCII_NUL;
+			((char*) comm->buffers.line.data)[comm->buffers.line.capacity - 1] = ASCII_NUL;
 
 			if(comm->modeBits.echoNewline)
 			{
@@ -198,7 +198,7 @@ void UpdateCommPort(CommPort* comm)
 	// If a newline has been received, flush the line to external RAM (or set hasLine flag if not using external RAM)
 	if(comm->newline.inProgress == comm->newline.rx)
 	{
-		comm->buffers.line.data[comm->buffers.line.length] = ASCII_NUL;
+		((char*) comm->buffers.line.data)[comm->buffers.line.length] = ASCII_NUL;
 		comm->buffers.line.length++;
 		comm->newline.inProgress = 0;
 		if(comm->modeBits.useExternalBuffer)
@@ -224,8 +224,9 @@ void CommFlushLineBuffer(CommPort* comm)
 {
 	while(_sram.statusBits.busy)
 		continue;
-	RingBufferEnqueue(&comm->external.buffer, comm->buffers.line.length);
-	SramWriteBytes(comm->external.baseAddress + (comm->external.blockSize *  comm->external.buffer.head),
+	RingBufferU8Enqueue(&comm->external.buffer, comm->buffers.line.length);
+	SramWriteBytes(comm->external.baseAddress
+				+ (comm->external.blockSize *  comm->external.buffer.head),
 				&comm->buffers.line);
 	comm->buffers.line.length = 0;
 }
@@ -242,7 +243,7 @@ void CommPutChar(CommPort* comm, char data)
 {
 	while(comm->buffers.tx.length == comm->buffers.tx.bufferSize)
 		continue;
-	RingBufferEnqueue(&comm->buffers.tx, data);
+	RingBufferU8Enqueue(&comm->buffers.tx, data);
 	bit_set(*comm->registers->pPie, comm->registers->txieBit);
 }
 
@@ -260,16 +261,6 @@ void CommPutNewline(CommPort* comm)
 
 	if(comm->newline.tx & NEWLINE_LF)
 		CommPutChar(comm, ASCII_LF);
-}
-
-void CommPutBuffer(CommPort* comm, BufferU8* source)
-{
-	int i;
-	for(i = 0; i < source->length && source->data[i] != ASCII_NUL; i++)
-	{
-		CommPutChar(comm, source->data[i]);
-	}
-	CommPutNewline(comm);
 }
 
 void CommPutSequence(CommPort* comm, unsigned char terminator, unsigned char paramCount, ...)

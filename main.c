@@ -49,6 +49,8 @@ void main(void)
 	ConfigureInterrupts();
 	ConfigureOS();
 
+	TestFunc1();
+
 	// Main program loop
 main_loop:
 	// BUTTON------------------------------------------
@@ -265,7 +267,7 @@ void ConfigureOS(void)
 					NEWLINE_CRLF, NEWLINE_CRLF,
 					&_comm1Regs,
 					false, false,
-					COORD_VALUE_COMM1.y, COORD_VALUE_COMM1.x);
+					COORD_VALUE_COMM1A.y, COORD_VALUE_COMM1A.x);
 	CommPortInitialize(&_comm2,
 					TX_BUFFER_SIZE, RX_BUFFER_SIZE, LINE_BUFFER_SIZE,
 					&txData2, &rxData2, &lineData2,
@@ -273,7 +275,7 @@ void ConfigureOS(void)
 					NEWLINE_CRLF, NEWLINE_CR,
 					&_comm2Regs,
 					true, false,
-					COORD_VALUE_COMM2.y, COORD_VALUE_COMM2.x);
+					COORD_VALUE_COMM2A.y, COORD_VALUE_COMM2A.x);
 	_comm2.modeBits.echoRx = true;
 	ButtonInfoInitialize(&_button, ButtonPress, ButtonHold, ButtonRelease, 0);
 	SramStatusInitialize();
@@ -304,7 +306,8 @@ void ConfigureOS(void)
 
 void ButtonPress(void)
 {
-	;
+	const char* test = "test";
+	ShellAddTask(ShellWaitText, 1, 0, 5000, false, false, false, 2, _shell.terminal, &test);
 }
 
 void ButtonHold(void)
@@ -356,11 +359,50 @@ void GetDateTime(DateTime* dateTime)
 }
 
 // DEBUG FUNCTIONS-------------------------------------------------------------
-#ifdef DEV_MODE_DEBUG
 
 void TestFunc1(void)
 {
-	LED = ~LED;
-}
+	unsigned char data[16];
+	unsigned char resultData[16];
+	unsigned char value = 0;
 
-#endif
+	RingBuffer buf;
+	InitializeRingBuffer(&buf, 16, 1, &data);
+	RingBufferEnqueue(&buf, (char*) 0x00);
+	RingBufferEnqueue(&buf, (char*) 0x11);
+	RingBufferEnqueue(&buf, (char*) 0x22);
+	RingBufferEnqueue(&buf, (char*) 0x33);
+	RingBufferEnqueue(&buf, (char*) 0x44);
+	RingBufferEnqueue(&buf, (char*) 0x55);
+	RingBufferEnqueue(&buf, (char*) 0x66);
+	RingBufferEnqueue(&buf, (char*) 0x77);
+	RingBufferDequeue(&buf, &value);
+	RingBufferDequeue(&buf, &value);
+	RingBufferDequeue(&buf, &value);
+	RingBufferDequeue(&buf, &value);
+	RingBufferEnqueue(&buf, (char*) 0x44);
+	RingBufferEnqueue(&buf, (char*) 0x55);
+	RingBufferEnqueue(&buf, (char*) 0x66);
+	RingBufferEnqueue(&buf, (char*) 0x77);
+	RingBufferEnqueue(&buf, (char*) 0x88);
+	RingBufferEnqueue(&buf, (char*) 0x99);
+	RingBufferEnqueue(&buf, (char*) 0xAA);
+	RingBufferEnqueue(&buf, (char*) 0xBB);
+	RingBufferEnqueue(&buf, (char*) 0xCC);
+	RingBufferEnqueue(&buf, (char*) 0xDD);
+	RingBufferEnqueue(&buf, (char*) 0xEE);
+	RingBufferEnqueue(&buf, (char*) 0xFF);
+	RingBufferEnqueue(&buf, (char*) 0x01);
+	RingBufferEnqueue(&buf, (char*) 0x23);
+	RingBufferEnqueue(&buf, (char*) 0x45);
+	RingBufferEnqueue(&buf, (char*) 0x67);
+	RingBufferEnqueue(&buf, (char*) 0x89);
+	RingBufferEnqueue(&buf, (char*) 0xAB);
+	RingBufferEnqueue(&buf, (char*) 0xCD);
+	RingBufferEnqueue(&buf, (char*) 0xEF);
+	for(uint8_t i = 0; i < 16; i++)
+	{
+		RingBufferDequeue(&buf, &value);
+		resultData[i] = value;
+	}
+}

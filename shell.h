@@ -87,7 +87,7 @@ typedef struct Shell
 
 	CommPort* server;
 	CommPort* terminal;
-	BufferU8 swapBuffer;
+	Buffer swapBuffer;
 } Shell;
 
 // GLOBAL VARIABLES------------------------------------------------------------
@@ -101,8 +101,14 @@ const struct Point COORD_LABEL_RELAY		= {14, 5};
 const struct Point COORD_LABEL_PROX			= {15, 6};
 const struct Point COORD_LABEL_TEMP			= {32, 5};
 const struct Point COORD_LABEL_LOAD			= {32, 6};
-const struct Point COORD_LABEL_COMM1		= {1, 9};
-const struct Point COORD_LABEL_COMM2		= {1, 10};
+const struct Point COORD_LABEL_COMM1A		= {1, 9};
+const struct Point COORD_LABEL_COMM1B		= {6, 10};
+const struct Point COORD_LABEL_COMM1C		= {6, 11};
+const struct Point COORD_LABEL_COMM1D		= {6, 12};
+const struct Point COORD_LABEL_COMM2A		= {1, 15};
+const struct Point COORD_LABEL_COMM2B		= {6, 16};
+const struct Point COORD_LABEL_COMM2C		= {6, 17};
+const struct Point COORD_LABEL_COMM2D		= {6, 18};
 const struct Point COORD_VALUE_UPTIME		= {52, 2};
 const struct Point COORD_VALUE_DATE			= {0, 5};
 const struct Point COORD_VALUE_TIME			= {5, 6};
@@ -114,9 +120,15 @@ const struct Point COORD_VALUE_RELAY		= {21, 5};
 const struct Point COORD_VALUE_PROX			= {21, 6};
 const struct Point COORD_VALUE_TEMP			= {32, 5};
 const struct Point COORD_VALUE_LOAD			= {32, 6};
-const struct Point COORD_VALUE_COMM1		= {8, 9};
-const struct Point COORD_VALUE_COMM2		= {8, 10};
 const struct Point COORD_VALUE_ERROR		= {1, 32};
+const struct Point COORD_VALUE_COMM1A		= {8, 9};
+const struct Point COORD_VALUE_COMM1B		= {8, 10};
+const struct Point COORD_VALUE_COMM1C		= {8, 11};
+const struct Point COORD_VALUE_COMM1D		= {8, 12};
+const struct Point COORD_VALUE_COMM2A		= {8, 15};
+const struct Point COORD_VALUE_COMM2B		= {8, 16};
+const struct Point COORD_VALUE_COMM2C		= {8, 17};
+const struct Point COORD_VALUE_COMM2D		= {8, 18};
 
 // FUNCTION PROTOTYPES---------------------------------------------------------
 void ShellLoop(void);
@@ -134,7 +146,7 @@ void ShellHandleSequence(CommPort* comm);
 void ShellPrintBasicLayout(void);
 void ShellPrintLastWarning(unsigned char row, unsigned char col);
 void ShellPrintLastError(unsigned char row, unsigned char col);
-void ShellDequeueLine(ExternalRingBufferU8* source, BufferU8* destination);
+void ShellDequeueLine(ExternalRingBufferU8* source, Buffer* destination);
 // Commands
 bool ShellWaitText(void);
 bool ShellPrintTick(void);

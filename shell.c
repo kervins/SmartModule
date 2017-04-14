@@ -28,23 +28,23 @@ void ShellLoop(void)
 	if(_tick > SHELL_RESET_DELAY)
 		TaskScheduler();
 
-	// Handle incoming data from terminal and backend
-	/*if(_shell.server->external.lineQueue.length && !_sram.statusBits.busy)
-				{
-					ShellDequeueLine(&_shell.server->external, &_shell.swapBuffer);
-					while(_sram.statusBits.busy)
-						continue;
-					CommPutString(_shell.terminal, "WIFI: ");
-					CommPutBuffer(_shell.terminal, &_shell.swapBuffer);
-					CommPutNewline(_shell.terminal);
-				}
-				else if(_shell.terminal->external.lineQueue.length && !_sram.statusBits.busy)
-				{
-					ShellDequeueLine(&_shell.terminal->external, &_shell.swapBuffer);
-					while(_sram.statusBits.busy)
-						continue;
-					ShellParseCommandLine();
-				}*/
+	if(_shell.terminal->external.buffer.length && !_sram.statusBits.busy)
+	{
+		ShellDequeueLine(&_shell.terminal->external, &_shell.swapBuffer);
+		while(_sram.statusBits.busy)
+			continue;
+		CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_COMM2A.y, COORD_VALUE_COMM2A.x);
+		CommPutSequence(_shell.terminal, ANSI_ELINE, 0);
+		CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_COMM2B.y, COORD_VALUE_COMM2B.x);
+		CommPutSequence(_shell.terminal, ANSI_ELINE, 0);
+		CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_COMM2B.y, COORD_VALUE_COMM2B.x);
+		CommPutString(_shell.terminal, (char*) _shell.swapBuffer.data);
+		CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_COMM2C.y, COORD_VALUE_COMM2C.x);
+		CommPutSequence(_shell.terminal, ANSI_ELINE, 0);
+		CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_COMM2D.y, COORD_VALUE_COMM2D.x);
+		CommPutSequence(_shell.terminal, ANSI_ELINE, 0);
+		_shell.swapBuffer.length = 0;
+	}
 
 	if(_shell.result.lastWarning)
 		ShellPrintLastWarning(32, 0);
@@ -161,7 +161,7 @@ void ShellInitialize(CommPort* serverComm, CommPort* terminalComm,
 	_shell.task.current = 0;
 	_shell.server = serverComm;
 	_shell.terminal = terminalComm;
-	BufferU8Create(&_shell.swapBuffer, swapBufferSize, swapBufferData);
+	InitializeBuffer(&_shell.swapBuffer, swapBufferSize, 1, swapBufferData);
 	LinkedList_16Element_Initialize(&_shell.task.list, &_taskListData, sizeof(Task));
 
 	// Print basic layout
@@ -174,11 +174,6 @@ void ShellInitialize(CommPort* serverComm, CommPort* terminalComm,
 
 void ShellParseCommandLine(void)
 {
-	if(BufferContains(&_shell.swapBuffer, "Reset"))
-	{
-
-		Reset();
-	}
 	_shell.swapBuffer.length = 0;
 }
 
@@ -263,12 +258,24 @@ void ShellPrintBasicLayout(void)
 	CommPutString(_shell.terminal, "TEMP:");
 	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_LABEL_LOAD.y, COORD_LABEL_LOAD.x);
 	CommPutString(_shell.terminal, "LOAD:");
-	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_LABEL_COMM1.y, COORD_LABEL_COMM1.x);
-	CommPutString(_shell.terminal, "COMM1>");
-	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_LABEL_COMM2.y, COORD_LABEL_COMM2.x);
-	CommPutString(_shell.terminal, "COMM2>");
 	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_LABEL_UPTIME.y, COORD_LABEL_UPTIME.x);
 	CommPutString(_shell.terminal, "UPTIME (ms):");
+	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_LABEL_COMM1A.y, COORD_LABEL_COMM1A.x);
+	CommPutString(_shell.terminal, "COMM1>");
+	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_LABEL_COMM1B.y, COORD_LABEL_COMM1B.x);
+	CommPutChar(_shell.terminal, '>');
+	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_LABEL_COMM1C.y, COORD_LABEL_COMM1C.x);
+	CommPutChar(_shell.terminal, '>');
+	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_LABEL_COMM1D.y, COORD_LABEL_COMM1D.x);
+	CommPutChar(_shell.terminal, '>');
+	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_LABEL_COMM2A.y, COORD_LABEL_COMM2A.x);
+	CommPutString(_shell.terminal, "COMM2>");
+	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_LABEL_COMM2B.y, COORD_LABEL_COMM2B.x);
+	CommPutChar(_shell.terminal, '>');
+	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_LABEL_COMM2C.y, COORD_LABEL_COMM2C.x);
+	CommPutChar(_shell.terminal, '>');
+	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_LABEL_COMM2D.y, COORD_LABEL_COMM2D.x);
+	CommPutChar(_shell.terminal, '>');
 }
 
 void ShellPrintLastWarning(unsigned char row, unsigned char col)
@@ -374,7 +381,7 @@ void ShellPrintLastError(unsigned char row, unsigned char col)
 	_shell.result.lastError = 0;
 }
 
-void ShellDequeueLine(ExternalRingBufferU8* source, BufferU8* destination)
+void ShellDequeueLine(ExternalRingBufferU8* source, Buffer* destination)
 {
 	if(_sram.statusBits.busy)
 	{
@@ -389,7 +396,7 @@ void ShellDequeueLine(ExternalRingBufferU8* source, BufferU8* destination)
 	}
 
 	uint24_t address = source->baseAddress + (source->blockSize *  source->buffer.tail);
-	uint8_t length = RingBufferDequeue(&source->buffer);
+	uint8_t length = RingBufferU8Dequeue(&source->buffer);
 
 	if(address > SRAM_CAPACITY)
 	{
@@ -407,13 +414,13 @@ void ShellDequeueLine(ExternalRingBufferU8* source, BufferU8* destination)
 		return;
 	}
 
-	if(length > destination->bufferSize)
+	if(length > destination->capacity * destination->elementSize)
 	{
 
 		_shell.result.values[0] = length;
-		_shell.result.values[1] = destination->bufferSize;
+		_shell.result.values[1] = destination->capacity * destination->elementSize;
 		_shell.result.lastWarning = SHELL_WARNING_DATA_TRUNCATED;
-		length = destination->bufferSize;
+		length = destination->capacity * destination->elementSize;
 	}
 
 	SramReadBytes(address, length, destination);
@@ -498,11 +505,10 @@ bool ShellWaitText(void)
 		ShellDequeueLine(&source->external, &_shell.swapBuffer);
 		while(_sram.statusBits.busy)
 			continue;
-		if(BufferEquals(&_shell.swapBuffer, text))
+		if(BufferEquals(&_shell.swapBuffer, text, strlen(text)))
 		{
-
+			CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_COMM2C.y, COORD_VALUE_COMM2C.x);
 			CommPutString(source, "MATCH!");
-			CommPutNewline(source);
 			return true;
 		}
 	}

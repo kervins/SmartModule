@@ -64,7 +64,7 @@ void WifiHandleBoot(void)
 	}
 	else if(_wifi.statusBits.boot == WIFI_BOOT_INITIALIZING && _comm1.statusBits.hasLine)
 	{
-		if(BufferContains(&_comm1.buffers.line, "ready"))
+		if(BufferContains(&_comm1.buffers.line, "ready", 5))
 		{
 			_wifi.statusBits.boot = WIFI_BOOT_COMPLETE;
 			_comm1.modeBits.useExternalBuffer = true;
