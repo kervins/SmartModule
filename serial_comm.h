@@ -33,7 +33,6 @@ typedef enum
 } NewlineFlags;
 
 // TYPE DEFINITIONS------------------------------------------------------------
-typedef void (*CommAction)(struct CommPort*) ;
 
 typedef struct CommDataRegisters
 {
@@ -42,13 +41,6 @@ typedef struct CommDataRegisters
 	unsigned char volatile* const pPie;
 	unsigned char const txieBit;
 } CommDataRegisters;
-
-typedef struct ExternalRingBufferU8
-{
-	unsigned short long int baseAddress;
-	unsigned int blockSize;
-	volatile RingBufferU8 buffer;
-} ExternalRingBufferU8;
 
 typedef struct CommPort
 {
@@ -112,13 +104,13 @@ typedef struct CommPort
 
 	struct
 	{
-		volatile RingBufferU8 tx;
-		volatile RingBufferU8 rx;
+		volatile RingBuffer tx;
+		volatile RingBuffer rx;
 		Buffer line;
+		RingBuffer external;
 	} buffers;
 
 	Point cursor;
-	ExternalRingBufferU8 external;
 	const CommDataRegisters* registers;
 } CommPort;
 
@@ -126,9 +118,7 @@ typedef struct CommPort
 void CommPortInitialize(CommPort* comm,
 						unsigned int txBufferSize, unsigned int rxBufferSize, unsigned int lineBufferSize,
 						char* txData, char* rxData, char* lineData,
-						unsigned short long int lineQueueBaseAddress,
-						unsigned int lineQueueSize,
-						unsigned char* lineQueueData,
+						const unsigned short long int* lineQueueBaseAddress, unsigned int lineQueueSize,
 						NewlineFlags txNewline, NewlineFlags rxNewline,
 						const CommDataRegisters* registers,
 						bool enableFlowControl, bool enableEcho,
@@ -138,6 +128,7 @@ void CommFlushLineBuffer(CommPort* comm);
 void CommResetSequence(CommPort* comm);
 void CommPutChar(CommPort* comm, char data);
 void CommPutString(CommPort* comm, const char* str);
+void CommPutSubString(CommPort* comm, const char* str, unsigned int startIndex, unsigned int length);
 void CommPutNewline(CommPort* comm);
 void CommPutSequence(CommPort* comm, unsigned char terminator, unsigned char paramCount, ...);
 

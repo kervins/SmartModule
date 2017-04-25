@@ -7,11 +7,13 @@
 #include <xc.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <stddef.h>
 #include "buffer.h"
+#include "sram.h"
 
-// BUFFER FUNCTIONS------------------------------------------------------------
+// INITIALIZATION FUNCTIONS----------------------------------------------------
 
-void InitializeBuffer(Buffer* buffer, unsigned int capacity, unsigned char elementSize, void* data)
+void InitializeBuffer(Buffer* buffer, unsigned int capacity, unsigned int elementSize, void* data)
 {
 	if(buffer == NULL)
 		return;
@@ -22,10 +24,8 @@ void InitializeBuffer(Buffer* buffer, unsigned int capacity, unsigned char eleme
 	buffer->data = data;
 }
 
-// RINGBUFFER FUNCTIONS--------------------------------------------------------
-
 void InitializeRingBuffer(volatile RingBuffer* buffer,
-						  unsigned int capacity, unsigned char elementSize, void* data)
+						  unsigned int capacity, unsigned int elementSize, void* data)
 {
 	if(buffer == NULL)
 		return;
@@ -38,77 +38,142 @@ void InitializeRingBuffer(volatile RingBuffer* buffer,
 	buffer->data = data;
 }
 
-void RingBufferSimpleEnqueue(volatile RingBuffer* buffer)
+void InitializeRingBufferSRAM(volatile RingBuffer* buffer,
+							  unsigned int capacity,
+							  unsigned int elementSize,
+							  const unsigned short long int* baseAddress)
 {
 	if(buffer == NULL)
 		return;
+
+	buffer->capacity = capacity;
+	buffer->elementSize = elementSize;
+	buffer->length = 0;
+	buffer->head = 0;
+	buffer->tail = 0;
+	buffer->data = baseAddress;
+}
+
+// RINGBUFFER FUNCTIONS--------------------------------------------------------
+
+void RingBufferEnqueue(volatile RingBuffer* buffer, void* source)
+{
+	if(buffer == NULL)
+		return;
+
+	// Copy data using a method appropriate for the element size
+	if(buffer->elementSize == 1)
+	{
+		((uint8_t*) buffer->data)[buffer->head] = (uint8_t) source;
+	}
+	else if(buffer->elementSize == 2)
+	{
+		((uint16_t*) buffer->data)[buffer->head] = (uint16_t) source;
+	}
+	else if(buffer->elementSize == 3)
+	{
+		((uint24_t*) buffer->data)[buffer->head] = (uint24_t) source;
+	}
+	else if(buffer->elementSize == 4)
+	{
+		((uint32_t*) buffer->data)[buffer->head] = (uint32_t) source;
+	}
+	else
+	{
+		uint16_t i;
+		for(i = 0; i < buffer->elementSize; i++)
+			((uint8_t*) buffer->data)[(buffer->head * buffer->elementSize) + i] = ((uint8_t*) source)[i];
+	}
 
 	// Adjust the head pointer
-	buffer->head = buffer->head + 1 == buffer->capacity ? 0 : buffer->head + 1;
-
 	// If the buffer is full, adjust the tail pointer (oldest value in the buffer is overwritten)
+	buffer->head = buffer->head + 1 == buffer->capacity ? 0 : buffer->head + 1;
 	if(buffer->length == buffer->capacity)
 		buffer->tail = buffer->tail + 1 == buffer->capacity ? 0 : buffer->tail + 1;
 	else
 		buffer->length++;
 }
 
-void RingBufferEnqueue(volatile RingBuffer* buffer, void* sourceValue)
+void RingBufferDequeue(volatile RingBuffer* buffer, void* destination)
 {
-	if(buffer == NULL)
+	if(buffer == NULL || destination == NULL || buffer->length == 0)
 		return;
 
-	// Copy data then adjust the head pointer
+	// Copy data using a method appropriate for the element size
 	if(buffer->elementSize == 1)
 	{
-		((uint8_t*) buffer->data)[buffer->head] = (uint8_t) sourceValue;
+		*((uint8_t*) destination) = ((uint8_t*) buffer->data)[buffer->tail];
+	}
+	else if(buffer->elementSize == 2)
+	{
+		*((uint16_t*) destination) = ((uint16_t*) buffer->data)[buffer->tail];
+	}
+	else if(buffer->elementSize == 3)
+	{
+		*((uint24_t*) destination) = ((uint24_t*) buffer->data)[buffer->tail];
+	}
+	else if(buffer->elementSize == 4)
+	{
+		*((uint32_t*) destination) = ((uint32_t*) buffer->data)[buffer->tail];
 	}
 	else
 	{
 		uint16_t i;
 		for(i = 0; i < buffer->elementSize; i++)
-			((uint8_t*) buffer->data)[(buffer->head * buffer->elementSize) + i] = ((uint8_t*) sourceValue)[i];
+			((uint8_t*) destination)[i] = ((uint8_t*) buffer->data)[(buffer->tail * buffer->elementSize) + i];
 	}
-	buffer->head = buffer->head + 1 == buffer->capacity ? 0 : buffer->head + 1;
 
+	// Adjust the tail pointer and buffer length
+	buffer->tail = buffer->tail + 1 == buffer->capacity ? 0 : buffer->tail + 1;
+	buffer->length--;
+}
+
+bool RingBufferEnqueueSRAM(volatile RingBuffer* buffer, Buffer* source)
+{
+	if(_sram.statusBits.busy
+	|| buffer == NULL
+	|| source == NULL
+	|| source->elementSize * source->length > buffer->elementSize)
+		return false;
+
+	// Calculate the SRAM address at which the write operation will begin
+	uint24_t address = *((uint24_t*) buffer->data) + (buffer->elementSize * buffer->head);
+	if(address + buffer->elementSize > SRAM_CAPACITY)
+		return false;
+
+	// Perform the write operation, then adjust the head pointer and buffer length
 	// If the buffer is full, adjust the tail pointer (oldest value in the buffer is overwritten)
+	SramWrite(address, source);
+	buffer->head = buffer->head + 1 == buffer->capacity ? 0 : buffer->head + 1;
 	if(buffer->length == buffer->capacity)
 		buffer->tail = buffer->tail + 1 == buffer->capacity ? 0 : buffer->tail + 1;
 	else
 		buffer->length++;
+	return true;
 }
 
-void RingBufferSimpleDequeue(volatile RingBuffer* buffer)
+bool RingBufferDequeueSRAM(volatile RingBuffer* buffer, Buffer* destination)
 {
-	if(buffer == NULL || buffer->length == 0)
-		return;
+	if(_sram.statusBits.busy
+	|| buffer == NULL
+	|| destination == NULL
+	|| buffer->length == 0
+	|| buffer->elementSize > (destination->elementSize * destination->capacity))
+		return false;
 
-	// Adjust the tail pointer
+	// Calculate the SRAM address at which the read operation will begin
+	uint24_t address = *((uint24_t*) buffer->data) + (buffer->elementSize * buffer->tail);
+	if(address + buffer->elementSize > SRAM_CAPACITY)
+		return false;
+
+	// Perform the read operation, then adjust the tail pointer and buffer length
+	SramRead(address, buffer->elementSize, destination);
 	buffer->tail = buffer->tail + 1 == buffer->capacity ? 0 : buffer->tail + 1;
 	buffer->length--;
+	return true;
 }
 
-void RingBufferDequeue(volatile RingBuffer* buffer, void* destinationValue)
-{
-	if(buffer == NULL || buffer->length == 0 || destinationValue == NULL)
-		return;
-
-	// Copy data then adjust the tail pointer
-	if(buffer->elementSize == 1)
-	{
-		*((uint8_t*) destinationValue) = ((uint8_t*) buffer->data)[buffer->tail];
-	}
-	else
-	{
-		uint16_t i;
-		for(i = 0; i < buffer->elementSize; i++)
-			((uint8_t*) destinationValue)[i] = ((uint8_t*) buffer->data)[(buffer->tail * buffer->elementSize) + i];
-	}
-	buffer->tail = buffer->tail + 1 == buffer->capacity ? 0 : buffer->tail + 1;
-	buffer->length--;
-}
-
-// PARSING FUNCTIONS-----------------------------------------------------------
+// BUFFER PARSING FUNCTIONS----------------------------------------------------
 
 bool BufferEquals(Buffer* buffer, const void* value, unsigned int valueLength)
 {
@@ -120,6 +185,7 @@ bool BufferEquals(Buffer* buffer, const void* value, unsigned int valueLength)
 	{
 		for(j = 0; j < buffer->elementSize; j++)
 		{
+
 			if(((uint8_t*) buffer->data)[(i * buffer->elementSize) + j]
 			!= ((uint8_t*) value)[(i * buffer->elementSize) + j])
 				return false;
@@ -128,12 +194,12 @@ bool BufferEquals(Buffer* buffer, const void* value, unsigned int valueLength)
 	return true;
 }
 
-bool BufferContains(Buffer* buffer, const void* value, unsigned int valueLength)
+int BufferContains(Buffer* buffer, const void* value, unsigned int valueLength)
 {
 	if(buffer == NULL || value == NULL || buffer->length < valueLength || valueLength == 0)
-		return false;
+		return -1;
 
-	unsigned int i = 0, j , k, offset;
+	unsigned int i = 0, j , k, m, offset;
 S1:{
 	offset = 1;
 	for(i; i < buffer->length; i++)
@@ -146,7 +212,9 @@ S1:{
 
 			if(k == buffer->elementSize)
 			{
-				i++;
+				if(valueLength == 1)
+					return i;
+				m = i++;
 				break;
 			}
 		}
@@ -165,52 +233,43 @@ S1:{
 		}
 
 		if(offset == valueLength - 1)
-			return true;
+			return m;
 	}
-	return false;
+	return -1;
 }
 
-// OLD-------------------------------------------------------------------------
-
-void RingBufferU8Create(volatile RingBufferU8* buffer, uint16_t bufferSize, char* data)
+/**
+ * Finds the <b>n</b>th occurrence of a specified value in a buffer
+ * @param buffer
+ * <p>Pointer to the <code>Buffer</code> to be searched
+ * @param value
+ * <p>The value to find
+ * @param valueLength
+ * <p>The length of the search value (measured in number of elements)
+ * @param n
+ * <p>The zero-based occurrence of <b>value</b> to find
+ * <p>For example, to find the 2nd <code>A</code> in <b>buffer</b>,
+ * set <code>value = 'A'</code> and <code>n = 1</code> (example assumes a string is being searched)
+ * @return The index in the buffer at which the <b>n</b>th occurrence was found, otherwise -1
+ */
+int BufferFind(Buffer* buffer, const void* value, unsigned int valueLength, unsigned int n)
 {
-	buffer->bufferSize = bufferSize;
-	buffer->length = 0;
-	buffer->head = bufferSize - 1;
-	buffer->tail = 0;
-	buffer->data = data;
-}
+	if(buffer == NULL || value == NULL)
+		return -1;
 
-void RingBufferU8Enqueue(volatile RingBufferU8* buffer, char data)
-{
-	if(buffer->length == buffer->bufferSize)	// Overflow hack
-		return;
-	buffer->head = (buffer->head + 1) % buffer->bufferSize;
-	buffer->data[buffer->head] = data;
-	buffer->length++;
-}
+	Buffer sub;
+	InitializeBuffer(&sub, buffer->capacity, buffer->elementSize, buffer->data);
+	sub.length = buffer->length;
 
-char RingBufferU8Dequeue(volatile RingBufferU8* buffer)
-{
-	// NOTE: Does not check if buffer is empty.
-	// It is essential that this be done somewhere, but was excluded here for performance reasons.
-	char data = buffer->data[buffer->tail];
-	buffer->tail = (buffer->tail + 1) % buffer->bufferSize;
-	buffer->length--;
-	return data;
-}
-
-char RingBufferU8DequeuePeek(volatile RingBufferU8* buffer)
-{
-	return buffer->data[buffer->tail];
-}
-
-void RingBufferU8RemoveLast(volatile RingBufferU8* buffer, uint16_t count)
-{
-	if(buffer->length == 0)
-		return;
-	if(count > buffer->length)
-		count = buffer->length;
-	buffer->head = (buffer->head + (buffer->bufferSize - count)) % buffer->bufferSize;
-	buffer->length -= count;
+	int index = 0, subIndex = -1;
+	unsigned int count;
+	for(count = 0; count <= n; count++)
+	{
+		subIndex = BufferContains(&sub, value, valueLength);
+		if(subIndex == -1)
+			return -1;
+		index += subIndex + (count * valueLength);
+		sub.data = ((uint8_t*) sub.data) + ((subIndex * buffer->elementSize) + (valueLength * buffer->elementSize));
+	}
+	return index;
 }

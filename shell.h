@@ -15,7 +15,7 @@
 #define SHELL_MAX_RESULT_VALUES	4
 #define SHELL_MAX_TASK_PARAMS	4
 #define SHELL_MAX_TASKS			16
-#define SHELL_RESET_DELAY		5000
+#define SHELL_RESET_DELAY		3000
 
 // DEFINITIONS (WARNINGS & ERRORS)---------------------------------------------
 // Warnings
@@ -29,6 +29,7 @@
 #define SHELL_ERROR_COMMAND_NOT_RECOGNIZED		5
 #define SHELL_ERROR_TASK_TIMEOUT				6
 #define SHELL_ERROR_NULL_REFERENCE				7
+#define SHELL_ERROR_WIFI_COMMAND				8
 
 // MACROS----------------------------------------------------------------------
 #define CURRENT_TASK ((Task*) _shell.task.current->data)
@@ -109,6 +110,7 @@ const struct Point COORD_LABEL_COMM2A		= {1, 15};
 const struct Point COORD_LABEL_COMM2B		= {6, 16};
 const struct Point COORD_LABEL_COMM2C		= {6, 17};
 const struct Point COORD_LABEL_COMM2D		= {6, 18};
+const struct Point COORD_LABEL_CMD			= {1, 20};
 const struct Point COORD_VALUE_UPTIME		= {52, 2};
 const struct Point COORD_VALUE_DATE			= {0, 5};
 const struct Point COORD_VALUE_TIME			= {5, 6};
@@ -118,8 +120,8 @@ const struct Point COORD_VALUE_HOST_NAME	= {20, 3};
 const struct Point COORD_VALUE_HOST_STATUS	= {37, 3};
 const struct Point COORD_VALUE_RELAY		= {21, 5};
 const struct Point COORD_VALUE_PROX			= {21, 6};
-const struct Point COORD_VALUE_TEMP			= {32, 5};
-const struct Point COORD_VALUE_LOAD			= {32, 6};
+const struct Point COORD_VALUE_TEMP			= {38, 5};
+const struct Point COORD_VALUE_LOAD			= {38, 6};
 const struct Point COORD_VALUE_ERROR		= {1, 32};
 const struct Point COORD_VALUE_COMM1A		= {8, 9};
 const struct Point COORD_VALUE_COMM1B		= {8, 10};
@@ -129,27 +131,29 @@ const struct Point COORD_VALUE_COMM2A		= {8, 15};
 const struct Point COORD_VALUE_COMM2B		= {8, 16};
 const struct Point COORD_VALUE_COMM2C		= {8, 17};
 const struct Point COORD_VALUE_COMM2D		= {8, 18};
+const struct Point COORD_VALUE_CMD			= {6, 20};
 
 // FUNCTION PROTOTYPES---------------------------------------------------------
 void ShellLoop(void);
 // Task Management
 void TaskScheduler(void);
-void ShellAddTask(B_Action action,
-				  unsigned int runCount, unsigned long int runInterval, unsigned long int timeout,
-				  bool isExclusive, bool isInfinite, bool isPeriodic,
-				  unsigned char paramCount, ...);
+LinkedListNode* ShellAddTask(B_Action action,
+							 unsigned int runCount, unsigned long int runInterval, unsigned long int timeout,
+							 bool isExclusive, bool isInfinite, bool isPeriodic,
+							 unsigned char paramCount, ...);
 // Shell Management
 void ShellInitialize(CommPort* serverComm, CommPort* terminalComm,
 					 unsigned int swapBufferSize, char* swapBufferData);
-void ShellParseCommandLine(void);
+void ShellParseCommandLine(CommPort* comm);
 void ShellHandleSequence(CommPort* comm);
 void ShellPrintBasicLayout(void);
 void ShellPrintLastWarning(unsigned char row, unsigned char col);
 void ShellPrintLastError(unsigned char row, unsigned char col);
-void ShellDequeueLine(ExternalRingBufferU8* source, Buffer* destination);
+//void ShellDequeueLine(ExternalRingBufferU8* source, Buffer* destination);
 // Commands
 bool ShellWaitText(void);
 bool ShellPrintTick(void);
 bool ShellPrintDateTime(void);
+bool ShellCalculateRMSCurrent(void);
 
 #endif

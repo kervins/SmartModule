@@ -21,6 +21,7 @@
 #include "sram.h"
 #include "wifi.h"
 #include "shell.h"
+#include "adc_rms.h"
 #include "linked_list.h"
 #include "utility.h"
 
@@ -46,10 +47,9 @@ void main(void)
 	ConfigureSPI();
 	ConfigureUSART();
 	ConfigureRTCC();
+	ConfigureADC();
 	ConfigureInterrupts();
 	ConfigureOS();
-
-	TestFunc1();
 
 	// Main program loop
 main_loop:
@@ -123,12 +123,18 @@ void ConfigurePorts(void)
 
 void ConfigureTimers(void)
 {
-	// Timer 4
+	// Timer 4 (used to generate OS tick)
 	// (1/(FCY/prescale))*period*postscale = timer interval
 	// (1/(12MHz/16))*250*3 = 1ms
 	T4CONbits.T4CKPS	= 0x2;	// Clock prescale
 	T4CONbits.T4OUTPS	= 0x2;	// Output postscale
 	PR4					= 0xFA;	// Timer period
+
+	// Timer 6 (used to control ADC sample rate)
+	// (1/(12MHz/16))*250*5 = 1.67ms = (1/600Hz)
+	T6CONbits.T6CKPS	= 0x2;	// Clock prescale
+	T6CONbits.T6OUTPS	= 0x4;	// Output postscale
+	PR6					= 0xFA;	// Timer period
 }
 
 void ConfigureSPI(void)
@@ -213,6 +219,17 @@ void ConfigureRTCC(void)
 	RTCCFGbits.RTCWREN	= false;	// Lock RTCC value registers
 }
 
+void ConfigureADC(void)
+{
+	ADCON0bits.VCFG		= 0;	// VREF- = GND ... VREF+ = 3.3V
+	ADCON0bits.ADCAL	= 0;	// Normal A/D Converter operation (no calibration is performed)
+	ADCON0bits.CHS		= 0;	// Channel AN0
+	ADCON1bits.ADFM		= 1;	// Result format right justified
+	ADCON1bits.ACQT		= 2;	// A/D Acquisition time = 4uS
+	ADCON1bits.ADCS		= 6;	// A/D conversion clock = FOSC/64
+	ADCON0bits.ADON		= 1;	// Enable A/D converter module
+}
+
 void ConfigureInterrupts(void)
 {
 	// Configure external interrupt (pushbutton = active LOW on INT1 mapped to RP2)
@@ -223,6 +240,10 @@ void ConfigureInterrupts(void)
 	// Configure Timer 4 period match interrupt
 	IPR3bits.TMR4IP	= 1;	// High priority
 	PIE3bits.TMR4IE	= 1;	// Enable
+
+	// Configure Timer 6 period match interrupt
+	IPR5bits.TMR6IP	= 1;	// High priority
+	PIE5bits.TMR6IE	= 1;	// Enable
 
 	// Configure USART1 interrupts
 	IPR1bits.TX1IP	= 0;	// Low priority TX interrupt
@@ -240,6 +261,10 @@ void ConfigureInterrupts(void)
 	IPR3bits.SSP2IP	= 0;	// Low priority
 	PIE3bits.SSP2IE	= 1;	// Enable
 
+	// Configure ADC interrupts
+	IPR1bits.ADIP	= 1;	// High priority
+	PIE1bits.ADIE	= 1;	// Enable
+
 	// Enable interrupts
 	RCONbits.IPEN	= 1;	// Set prioritized interrupt mode
 	INTCONbits.GIEH	= 1;	// Enable high-priority interrupts
@@ -255,15 +280,13 @@ void ConfigureOS(void)
 	char rxData2[RX_BUFFER_SIZE];
 	char lineData1[LINE_BUFFER_SIZE];
 	char lineData2[LINE_BUFFER_SIZE];
-	uint8_t lineQueueData1[COMM1_LINE_QUEUE_SIZE];
-	uint8_t lineQueueData2[COMM2_LINE_QUEUE_SIZE];
 	char swapData[LINE_BUFFER_SIZE];
 
 	// Initialize global variables
 	CommPortInitialize(&_comm1,
 					TX_BUFFER_SIZE, RX_BUFFER_SIZE, LINE_BUFFER_SIZE,
 					&txData1, &rxData1, &lineData1,
-					COMM1_LINE_QUEUE_ADDR, COMM1_LINE_QUEUE_SIZE, &lineQueueData1,
+					&SRAM_ADDR_COMM1_LINE_QUEUE, COMM1_LINE_QUEUE_SIZE,
 					NEWLINE_CRLF, NEWLINE_CRLF,
 					&_comm1Regs,
 					false, false,
@@ -271,16 +294,17 @@ void ConfigureOS(void)
 	CommPortInitialize(&_comm2,
 					TX_BUFFER_SIZE, RX_BUFFER_SIZE, LINE_BUFFER_SIZE,
 					&txData2, &rxData2, &lineData2,
-					COMM2_LINE_QUEUE_ADDR, COMM2_LINE_QUEUE_SIZE, &lineQueueData2,
+					&SRAM_ADDR_COMM2_LINE_QUEUE, COMM2_LINE_QUEUE_SIZE,
 					NEWLINE_CRLF, NEWLINE_CR,
 					&_comm2Regs,
 					true, false,
 					COORD_VALUE_COMM2A.y, COORD_VALUE_COMM2A.x);
+	_comm1.modeBits.echoRx = false;
 	_comm2.modeBits.echoRx = true;
 	ButtonInfoInitialize(&_button, ButtonPress, ButtonHold, ButtonRelease, 0);
 	SramStatusInitialize();
 	ShellInitialize(&_comm1, &_comm2, LINE_BUFFER_SIZE, swapData);
-	// TODO: Shell needs to print initial command line... here
+	InitializeLoadMeasurement();
 
 	// Hold Wifi in reset
 	_wifi.statusBits.resetMode = WIFI_RESET_HOLD;
@@ -298,16 +322,17 @@ void ConfigureOS(void)
 		continue;
 	SramFill(0x000000, SRAM_CAPACITY, 0xFF);*/
 
-	// Start tick timer (Timer 4)
+	// Start tick timer (Timer 4) and ADC timer (Timer 6)
 	T4CONbits.TMR4ON = true;
+	T6CONbits.TMR6ON = true;
 }
 
 // BUTTON ACTIONS--------------------------------------------------------------
 
 void ButtonPress(void)
 {
-	const char* test = "test";
-	ShellAddTask(ShellWaitText, 1, 0, 5000, false, false, false, 2, _shell.terminal, &test);
+	_comm1.modeBits.echoRx = true;
+	CommPutString(&_comm1, "AT");
 }
 
 void ButtonHold(void)
@@ -360,49 +385,54 @@ void GetDateTime(DateTime* dateTime)
 
 // DEBUG FUNCTIONS-------------------------------------------------------------
 
-void TestFunc1(void)
-{
-	unsigned char data[16];
-	unsigned char resultData[16];
-	unsigned char value = 0;
+void TestFunc1(void) {
+	/*Buffer test8, test16;
+	unsigned char testData8[8] = "ABC123AB";
+	unsigned int testData16[8] = {0x0123, 0x4567, 0x89AB, 0xCDEF, 0x0123, 0x7788, 0x89AB, 0xCDEF};
+	unsigned int valueA = 0x89AB;
+	unsigned int valueB[2] = {0x89AB, 0xCDEF};
+	unsigned int valueC = 0xFAFF;
+	InitializeBuffer(&test8, 8, 1, testData8);
+	InitializeBuffer(&test16, 8, 2, testData16);
+	test8.length = 8;
+	test16.length = 8;*/
 
-	RingBuffer buf;
-	InitializeRingBuffer(&buf, 16, 1, &data);
-	RingBufferEnqueue(&buf, (char*) 0x00);
-	RingBufferEnqueue(&buf, (char*) 0x11);
-	RingBufferEnqueue(&buf, (char*) 0x22);
-	RingBufferEnqueue(&buf, (char*) 0x33);
-	RingBufferEnqueue(&buf, (char*) 0x44);
-	RingBufferEnqueue(&buf, (char*) 0x55);
-	RingBufferEnqueue(&buf, (char*) 0x66);
-	RingBufferEnqueue(&buf, (char*) 0x77);
-	RingBufferDequeue(&buf, &value);
-	RingBufferDequeue(&buf, &value);
-	RingBufferDequeue(&buf, &value);
-	RingBufferDequeue(&buf, &value);
-	RingBufferEnqueue(&buf, (char*) 0x44);
-	RingBufferEnqueue(&buf, (char*) 0x55);
-	RingBufferEnqueue(&buf, (char*) 0x66);
-	RingBufferEnqueue(&buf, (char*) 0x77);
-	RingBufferEnqueue(&buf, (char*) 0x88);
-	RingBufferEnqueue(&buf, (char*) 0x99);
-	RingBufferEnqueue(&buf, (char*) 0xAA);
-	RingBufferEnqueue(&buf, (char*) 0xBB);
-	RingBufferEnqueue(&buf, (char*) 0xCC);
-	RingBufferEnqueue(&buf, (char*) 0xDD);
-	RingBufferEnqueue(&buf, (char*) 0xEE);
-	RingBufferEnqueue(&buf, (char*) 0xFF);
-	RingBufferEnqueue(&buf, (char*) 0x01);
-	RingBufferEnqueue(&buf, (char*) 0x23);
-	RingBufferEnqueue(&buf, (char*) 0x45);
-	RingBufferEnqueue(&buf, (char*) 0x67);
-	RingBufferEnqueue(&buf, (char*) 0x89);
-	RingBufferEnqueue(&buf, (char*) 0xAB);
-	RingBufferEnqueue(&buf, (char*) 0xCD);
-	RingBufferEnqueue(&buf, (char*) 0xEF);
-	for(uint8_t i = 0; i < 16; i++)
-	{
-		RingBufferDequeue(&buf, &value);
-		resultData[i] = value;
-	}
-}
+	/*int sum = 0;
+	int result = BufferContains(&test8, "2", 1);
+	sum += result;
+	result = BufferContains(&test8, "23", 2);
+	sum += result;
+	result = BufferContains(&test8, "123", 3);
+	sum += result;
+	result = BufferContains(&test8, "X", 1);
+	sum += result;
+	result = BufferContains(&test16, &valueA, 1);
+	sum += result;
+	result = BufferContains(&test16, &valueB, 2);
+	sum += result;
+	result = BufferContains(&test16, &valueC, 1);
+	sum += result;
+	LED = sum >= 0 ? 1 : 0;*/
+
+	/*int sum = 0;
+	int result = BufferFind(&test8, "A", 1, 0);
+	sum += result;
+	result = BufferFind(&test8, "A", 1, 1);
+	sum += result;
+	result = BufferFind(&test8, "AB", 2, 0);
+	sum += result;
+	result = BufferFind(&test8, "AB", 2, 1);
+	sum += result;
+	result = BufferFind(&test8, "CC", 2, 2);
+	sum += result;
+	result = BufferFind(&test16, &valueA, 1, 0);
+	sum += result;
+	result = BufferFind(&test16, &valueA, 1, 1);
+	sum += result;
+	result = BufferFind(&test16, &valueB, 2, 0);
+	sum += result;
+	result = BufferFind(&test16, &valueB, 2, 1);
+	sum += result;
+	result = BufferFind(&test16, &valueC, 1, 2);
+	sum += result;
+	LED = sum >= 0 ? 1 : 0;*/ }

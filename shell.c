@@ -15,6 +15,7 @@
 #include "sram.h"
 #include "serial_comm.h"
 #include "wifi.h"
+#include "adc_rms.h"
 #include "utility.h"
 
 // GLOBAL VARIABLES------------------------------------------------------------
@@ -28,22 +29,78 @@ void ShellLoop(void)
 	if(_tick > SHELL_RESET_DELAY)
 		TaskScheduler();
 
-	if(_shell.terminal->external.buffer.length && !_sram.statusBits.busy)
+	if(_shell.server->buffers.external.length && !_sram.statusBits.busy)
 	{
-		ShellDequeueLine(&_shell.terminal->external, &_shell.swapBuffer);
+		RingBufferDequeueSRAM(&_shell.server->buffers.external, &_shell.swapBuffer);
 		while(_sram.statusBits.busy)
 			continue;
+		CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_COMM1A.y, COORD_VALUE_COMM1A.x);
+		CommPutSequence(_shell.terminal, ANSI_ELINE, 0);
+		CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_COMM1A.y, COORD_VALUE_COMM1A.x);
+		CommPutString(_shell.terminal, (char*) _shell.swapBuffer.data);
+		CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_COMM1B.y, COORD_VALUE_COMM1B.x);
+		CommPutSequence(_shell.terminal, ANSI_ELINE, 0);
+		CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_COMM1C.y, COORD_VALUE_COMM1C.x);
+		CommPutSequence(_shell.terminal, ANSI_ELINE, 0);
+		CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_COMM1D.y, COORD_VALUE_COMM1D.x);
+		CommPutSequence(_shell.terminal, ANSI_ELINE, 0);
+
+		if(BufferContains(&_shell.swapBuffer, "WIFI GOT IP", 11) >= 0)
+		{
+			_wifi.statusBits.isSsidConnected = true;
+			CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_SSID_STATUS.y, COORD_VALUE_SSID_STATUS.x);
+			CommPutString(_shell.terminal, "             ");
+			CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_SSID_STATUS.y, COORD_VALUE_SSID_STATUS.x);
+			CommPutString(_shell.terminal, "Connected");
+		}
+		else if(BufferContains(&_shell.swapBuffer, "WIFI CONNECTED", 14) >= 0)
+		{
+			CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_SSID_STATUS.y, COORD_VALUE_SSID_STATUS.x);
+			CommPutString(_shell.terminal, "             ");
+			CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_SSID_STATUS.y, COORD_VALUE_SSID_STATUS.x);
+			CommPutString(_shell.terminal, "Connecting...");
+		}
+		else if(BufferContains(&_shell.swapBuffer, "WIFI DISCONNECT", 15) >= 0)
+		{
+			_wifi.statusBits.isSsidConnected = false;
+			_wifi.statusBits.isTcpConnected = false;
+			CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_SSID_STATUS.y, COORD_VALUE_SSID_STATUS.x);
+			CommPutString(_shell.terminal, "             ");
+			CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_SSID_STATUS.y, COORD_VALUE_SSID_STATUS.x);
+			CommPutString(_shell.terminal, "Disconnected");
+			CommPutString(_shell.server, at_cwjap_cur);
+			CommPutString(_shell.server, "=\"");
+			CommPutString(_shell.server, network_ssid);
+			if(network_use_password)
+			{
+				CommPutString(_shell.server, "\",\"");
+				CommPutString(_shell.server, network_pass);
+			}
+			CommPutChar(_shell.server, '\"');
+			CommPutNewline(_shell.server);
+		}
+		else if(BufferContains(&_shell.swapBuffer, "ERROR", 5) >= 0)
+		{
+			_shell.result.lastError = SHELL_ERROR_WIFI_COMMAND;
+			_shell.result.values[0] = _tick;
+		}
+	}
+	else if(_shell.terminal->buffers.external.length && !_sram.statusBits.busy)
+	{
+		RingBufferDequeueSRAM(&_shell.terminal->buffers.external, &_shell.swapBuffer);
+		while(_sram.statusBits.busy)
+			continue;
+		CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_ERROR.y, COORD_VALUE_ERROR.x);
+		CommPutSequence(_shell.terminal, ANSI_ELINE, 0);
 		CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_COMM2A.y, COORD_VALUE_COMM2A.x);
 		CommPutSequence(_shell.terminal, ANSI_ELINE, 0);
 		CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_COMM2B.y, COORD_VALUE_COMM2B.x);
 		CommPutSequence(_shell.terminal, ANSI_ELINE, 0);
-		CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_COMM2B.y, COORD_VALUE_COMM2B.x);
-		CommPutString(_shell.terminal, (char*) _shell.swapBuffer.data);
 		CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_COMM2C.y, COORD_VALUE_COMM2C.x);
 		CommPutSequence(_shell.terminal, ANSI_ELINE, 0);
 		CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_COMM2D.y, COORD_VALUE_COMM2D.x);
 		CommPutSequence(_shell.terminal, ANSI_ELINE, 0);
-		_shell.swapBuffer.length = 0;
+		ShellParseCommandLine(_shell.terminal);
 	}
 
 	if(_shell.result.lastWarning)
@@ -118,10 +175,10 @@ t_comp:{
 	}
 }
 
-void ShellAddTask(B_Action action,
-				  unsigned int runCount, unsigned long int runInterval, unsigned long int timeout,
-				  bool isExclusive, bool isInfinite, bool isPeriodic,
-				  unsigned char paramCount, ...)
+LinkedListNode* ShellAddTask(B_Action action,
+							 unsigned int runCount, unsigned long int runInterval, unsigned long int timeout,
+							 bool isExclusive, bool isInfinite, bool isPeriodic,
+							 unsigned char paramCount, ...)
 {
 
 	Task task;
@@ -147,6 +204,7 @@ void ShellAddTask(B_Action action,
 		va_end(args);
 	}
 	LinkedListInsert(&_shell.task.list, _shell.task.list.last, &task, false);
+	return _shell.task.list.last;
 }
 
 // SHELL MANAGEMENT------------------------------------------------------------
@@ -169,12 +227,25 @@ void ShellInitialize(CommPort* serverComm, CommPort* terminalComm,
 
 	// Add persistent tasks
 	ShellAddTask(ShellPrintDateTime, 0, 1000, 0, false, true, true, 1, _shell.terminal);
-	ShellAddTask(ShellPrintTick, 0, 50, 0, false, true, true, 1, _shell.terminal);
+	ShellAddTask(ShellPrintTick, 0, 125, 0, false, true, true, 1, _shell.terminal);
+	ShellAddTask(ShellCalculateRMSCurrent, 0, 1000, 0, false, true, true, 0);
 }
 
-void ShellParseCommandLine(void)
+void ShellParseCommandLine(CommPort* comm)
 {
-	_shell.swapBuffer.length = 0;
+	if(BufferContains(&_shell.swapBuffer, "WC:", 3) == 0)
+	{
+		CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_CMD.y, COORD_VALUE_CMD.x);
+		CommPutSequence(comm, ANSI_ELINE, 0);
+		CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_CMD.y, COORD_VALUE_CMD.x);
+		CommPutString(_shell.terminal, (uint8_t*) _shell.swapBuffer.data);
+		CommPutString(_shell.server, ((uint8_t*) _shell.swapBuffer.data) + 3);
+		CommPutNewline(_shell.server);
+	}
+	else
+	{
+		_shell.result.lastError = SHELL_ERROR_COMMAND_NOT_RECOGNIZED;
+	}
 }
 
 void ShellHandleSequence(CommPort* comm)
@@ -247,7 +318,8 @@ void ShellPrintBasicLayout(void)
 	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_LABEL_STATUS.y, COORD_LABEL_STATUS.x);
 	CommPutString(_shell.terminal, "STATUS");
 	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_LABEL_SSID.y, COORD_LABEL_SSID.x);
-	CommPutString(_shell.terminal, "SSID:");
+	CommPutString(_shell.terminal, "SSID: ");
+	CommPutString(_shell.terminal, network_ssid);
 	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_LABEL_HOST.y, COORD_LABEL_HOST.x);
 	CommPutString(_shell.terminal, "HOST:");
 	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_LABEL_RELAY.y, COORD_LABEL_RELAY.x);
@@ -259,7 +331,7 @@ void ShellPrintBasicLayout(void)
 	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_LABEL_LOAD.y, COORD_LABEL_LOAD.x);
 	CommPutString(_shell.terminal, "LOAD:");
 	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_LABEL_UPTIME.y, COORD_LABEL_UPTIME.x);
-	CommPutString(_shell.terminal, "UPTIME (ms):");
+	CommPutString(_shell.terminal, "SYS TIME (ms):");
 	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_LABEL_COMM1A.y, COORD_LABEL_COMM1A.x);
 	CommPutString(_shell.terminal, "COMM1>");
 	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_LABEL_COMM1B.y, COORD_LABEL_COMM1B.x);
@@ -276,6 +348,8 @@ void ShellPrintBasicLayout(void)
 	CommPutChar(_shell.terminal, '>');
 	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_LABEL_COMM2D.y, COORD_LABEL_COMM2D.x);
 	CommPutChar(_shell.terminal, '>');
+	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_LABEL_CMD.y, COORD_LABEL_CMD.x);
+	CommPutString(_shell.terminal, "CMD:");
 }
 
 void ShellPrintLastWarning(unsigned char row, unsigned char col)
@@ -372,6 +446,14 @@ void ShellPrintLastError(unsigned char row, unsigned char col)
 			CommPutString(_shell.terminal, "NULL reference");
 			break;
 		}
+		case SHELL_ERROR_WIFI_COMMAND:
+		{
+			ultoa(&valueStr, _shell.result.values[0], 10);
+			CommPutString(_shell.terminal, "WiFi module reported an error (system time = ");
+			CommPutString(_shell.terminal, &valueStr);
+			CommPutString(_shell.terminal, "ms)");
+			break;
+		}
 		default:
 		{
 			CommPutString(_shell.terminal, "UNDEFINED");
@@ -379,51 +461,6 @@ void ShellPrintLastError(unsigned char row, unsigned char col)
 		}
 	}
 	_shell.result.lastError = 0;
-}
-
-void ShellDequeueLine(ExternalRingBufferU8* source, Buffer* destination)
-{
-	if(_sram.statusBits.busy)
-	{
-		_shell.result.lastError = SHELL_ERROR_SRAM_BUSY;
-		return;
-	}
-
-	if(source->buffer.length == 0)
-	{
-		_shell.result.lastError = SHELL_ERROR_LINE_QUEUE_EMPTY;
-		return;
-	}
-
-	uint24_t address = source->baseAddress + (source->blockSize *  source->buffer.tail);
-	uint8_t length = RingBufferU8Dequeue(&source->buffer);
-
-	if(address > SRAM_CAPACITY)
-	{
-		_shell.result.values[0] = address;
-		_shell.result.values[1] = 0;
-		_shell.result.values[2] = SRAM_CAPACITY;
-		_shell.result.lastError = SHELL_ERROR_ADDRESS_RANGE;
-		return;
-	}
-
-	if(length == 0)
-	{
-		_shell.result.values[0] = length;
-		_shell.result.lastError = SHELL_ERROR_ZERO_LENGTH;
-		return;
-	}
-
-	if(length > destination->capacity * destination->elementSize)
-	{
-
-		_shell.result.values[0] = length;
-		_shell.result.values[1] = destination->capacity * destination->elementSize;
-		_shell.result.lastWarning = SHELL_WARNING_DATA_TRUNCATED;
-		length = destination->capacity * destination->elementSize;
-	}
-
-	SramReadBytes(address, length, destination);
 }
 
 // COMMANDS (TERMINAL OUTPUT)--------------------------------------------------
@@ -496,21 +533,78 @@ bool ShellPrintDateTime(void)
 
 // COMMANDS -------------------------------------------------------------------
 
-bool ShellWaitText(void)
+bool ShellCalculateRMSCurrent(void)
 {
-	CommPort* source = (CommPort*) CURRENT_TASK->params[0];
-	char* text = (char*) CURRENT_TASK->params[1];
-	if(source->external.buffer.length && !_sram.statusBits.busy)
+	float rms = (float) CalculateCurrentRMS();
+	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_LOAD.y, COORD_VALUE_LOAD.x);
+	CommPutString(_shell.terminal, "            ");
+	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_LOAD.y, COORD_VALUE_LOAD.x);
+	if(rms > 1800.0)
 	{
-		ShellDequeueLine(&source->external, &_shell.swapBuffer);
-		while(_sram.statusBits.busy)
-			continue;
-		if(BufferEquals(&_shell.swapBuffer, text, strlen(text)))
+		switch(_adc.pinFloatAnimation)
 		{
-			CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_COMM2C.y, COORD_VALUE_COMM2C.x);
-			CommPutString(source, "MATCH!");
-			return true;
+			case 0:
+			{
+				CommPutString(_shell.terminal, "Floating");
+				_adc.pinFloatAnimation++;
+				break;
+			}
+			case 1:
+			{
+				CommPutString(_shell.terminal, "fLoating");
+				_adc.pinFloatAnimation++;
+				break;
+			}
+			case 2:
+			{
+				CommPutString(_shell.terminal, "flOating");
+				_adc.pinFloatAnimation++;
+				break;
+			}
+			case 3:
+			{
+				CommPutString(_shell.terminal, "floAting");
+				_adc.pinFloatAnimation++;
+				break;
+			}
+			case 4:
+			{
+				CommPutString(_shell.terminal, "floaTing");
+				_adc.pinFloatAnimation++;
+				break;
+			}
+			case 5:
+			{
+				CommPutString(_shell.terminal, "floatIng");
+				_adc.pinFloatAnimation++;
+				break;
+			}
+			case 6:
+			{
+				CommPutString(_shell.terminal, "floatiNg");
+				_adc.pinFloatAnimation++;
+				break;
+			}
+			case 7:
+			{
+				CommPutString(_shell.terminal, "floatinG");
+				_adc.pinFloatAnimation++;
+				break;
+			}
+			default:
+			{
+				CommPutString(_shell.terminal, "floating");
+				_adc.pinFloatAnimation = 0;
+				break;
+			}
 		}
 	}
-	return false;
+	else
+	{
+		int status;
+		unsigned char* rmsStr = ftoa(rms, &status);
+		CommPutString(_shell.terminal, rmsStr);
+		CommPutChar(_shell.terminal, 'W');
+	}
+	return true;
 }

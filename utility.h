@@ -90,7 +90,10 @@
 // Clear line from cursor left		(Param:	1)
 // Clear entire line				(Param:	2)
 
-// FUNCTION POINTERS-----------------------------------------------------------
+// BASIC TYPEDEFS--------------------------------------------------------------
+#define SCUINT24 static const unsigned short long int
+
+// Function Pointers
 typedef void (*Action)(void) ;
 typedef void (*Action_pV)(void*) ;
 typedef void (*Action_U8)(unsigned char) ;

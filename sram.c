@@ -13,6 +13,11 @@
 
 // SRAM USER CALLABLE FUNCTIONS------------------------------------------------
 
+/**
+ * Writes to the mode register of the SRAM device
+ * @param mode
+ * <p>An <code>SramMode</code> structure containing the new mode settings to be written
+ */
 void SramSetMode(SramMode mode)
 {
 	if(_sram.statusBits.busy)
@@ -36,54 +41,86 @@ void SramSetMode(SramMode mode)
 	DMACON1bits.DMAEN = true;
 }
 
-void SramReadBytes(uint24_t address, uint24_t length, Buffer* destination)
+/**
+ * Reads data contained in external SRAM into a buffer
+ * @param address
+ * <p>Address in SRAM memory from which data will be read
+ * @param length
+ * <p>Number of <b>elements</b> to read
+ * <p>The size of an element is determined from the <code>elementSize</code> member of the destination buffer
+ * @param destination
+ * <p>A pointer to a <code>Buffer</code> in which to store the data
+ */
+void SramRead(unsigned short long int address, unsigned short long int length, Buffer* destination)
 {
-	if(_sram.statusBits.busy)
+	if(_sram.statusBits.busy
+	|| destination == NULL
+	|| length == 0
+	|| address >= SRAM_CAPACITY)
 		return;
-	if(length == 0 || address >= SRAM_CAPACITY)
-		return;
-	if(length > destination->capacity * destination->elementSize)
-		length = destination->capacity * destination->elementSize;
-	if(address + length >= SRAM_CAPACITY)
-		length = (SRAM_CAPACITY - address) - ((SRAM_CAPACITY - address) % destination->elementSize);
+
+	if(length > destination->capacity)
+		length = destination->capacity;
+	if(address + (length * destination->elementSize) > SRAM_CAPACITY)
+		length = (SRAM_CAPACITY - address) / destination->elementSize;
 
 	_sram.statusBits.busy = true;
 	_sram.statusBits.currentOperation = SRAM_OP_READ;
 	_sram.startTime = _tick;
 	_sram.readAddress = address;
 	_sram.dataLength = length;
-	_sram.bytesRemaining = length;
+	_sram.bytesRemaining = length * destination->elementSize;
 	_sram.targetBuffer = destination;
 	_sram.initialization.command = SRAM_COMMAND_READ;
 	_sram.initialization.address = address;
 	_SramOperationStart();
 }
 
-void SramWriteBytes(uint24_t address, Buffer* source)
+/*void SramReadBytes(unsigned short long int address, unsigned short long int length, unsigned char* destination)
 {
-	if(_sram.statusBits.busy)
+	if(_sram.statusBits.busy
+	|| destination == NULL
+	|| length == 0
+	|| length + address > SRAM_CAPACITY)
 		return;
-	if(source->length == 0 || address + (source->length * source->elementSize) >= SRAM_CAPACITY)
+
+	if(address + length >= SRAM_CAPACITY)
+		length = SRAM_CAPACITY - address;
+}*/
+
+void SramWrite(unsigned short long int address, Buffer* source)
+{
+	if(_sram.statusBits.busy
+	|| source == NULL
+	|| source->length == 0
+	|| address + (source->length * source->elementSize) > SRAM_CAPACITY)
 		return;
 
 	_sram.statusBits.busy = true;
 	_sram.statusBits.currentOperation = SRAM_OP_WRITE;
 	_sram.startTime = _tick;
 	_sram.writeAddress = address;
-	_sram.dataLength = source->length * source->elementSize;
-	_sram.bytesRemaining = _sram.dataLength;
+	_sram.dataLength = source->length;
+	_sram.bytesRemaining = source->length * source->elementSize;
 	_sram.targetBuffer = source;
 	_sram.initialization.command = SRAM_COMMAND_WRITE;
 	_sram.initialization.address = address;
 	_SramOperationStart();
 }
 
-void SramFill(uint24_t address, uint24_t length, uint8_t value)
+/*void SramWriteBytes(unsigned short long int address, unsigned short long int length, unsigned char* source)
 {
 	if(_sram.statusBits.busy)
 		return;
-	if(length == 0 || address >= SRAM_CAPACITY)
+}*/
+
+void SramFill(unsigned short long int address, unsigned short long int length, unsigned char value)
+{
+	if(_sram.statusBits.busy
+	|| length == 0
+	|| address >= SRAM_CAPACITY)
 		return;
+
 	if(address + length >= SRAM_CAPACITY)
 		length = SRAM_CAPACITY - address;
 

@@ -30,10 +30,11 @@ typedef struct
 
 		struct
 		{
-			unsigned ready : 1;
 			unsigned boot : 3;
 			unsigned resetMode : 2;
-			unsigned : 2;
+			unsigned isSsidConnected : 1;
+			unsigned isTcpConnected : 1;
+			unsigned : 1;
 		} statusBits;
 		unsigned char status;
 	} ;
@@ -53,6 +54,12 @@ typedef struct CWLAP_options
 	unsigned freqCalibration : 1;
 	unsigned : 1;
 } CWLAP_options;
+
+// CONSTANTS (NETWORK INFO)----------------------------------------------------
+static const char* network_ssid			= "RuisiWifi";
+static const unsigned int network_port	= 11000;
+static const bool network_use_password	= true;
+static const char* network_pass			= "R3adY0uF1v3By5";
 
 // CONSTANTS (ESP-8266 AT COMMANDS)--------------------------------------------
 // BASIC COMMANDS

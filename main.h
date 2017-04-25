@@ -39,10 +39,6 @@
 #define PC_TX			PORTCbits.RP12
 #define WIFI_RX			PORTCbits.TX1
 #define WIFI_TX			PORTCbits.RX1
-//#define DEBUG0			LATAbits.LATA0
-//#define DEBUG1			LATAbits.LATA1
-//#define DEBUG2			LATAbits.LATA2
-//#define DEBUG3			LATAbits.LATA3
 
 // DEFINITIONS (DATA)----------------------------------------------------------
 #define PERF_COUNTER_ARRAY_SIZE	10
@@ -51,9 +47,6 @@
 #define LINE_BUFFER_SIZE		RX_BUFFER_SIZE
 #define COMM1_LINE_QUEUE_SIZE	16
 #define COMM2_LINE_QUEUE_SIZE	16
-#define COMM1_LINE_QUEUE_ADDR	0x00000
-#define COMM2_LINE_QUEUE_ADDR	0x01000
-#define DATA_LOAD_ADDR			0x02000
 
 // DEFINITIONS (OTHER)---------------------------------------------------------
 #define FIRMWARE_VERSION	1.00
@@ -64,6 +57,7 @@ extern volatile unsigned long int _tick;
 extern volatile struct ButtonInfo _button;
 extern struct CommPort _comm1, _comm2;
 extern const struct CommDataRegisters _comm1Regs, _comm2Regs;
+extern struct AdcRmsInfo _adc;
 
 // FUNCTION PROTOTYPES---------------------------------------------------------
 // Initialization
@@ -74,6 +68,7 @@ void ConfigureTimers(void);
 void ConfigureSPI(void);
 void ConfigureUSART(void);
 void ConfigureRTCC(void);
+void ConfigureADC(void);
 void ConfigureInterrupts(void);
 void ConfigureOS(void);
 // Button Actions
@@ -86,44 +81,46 @@ void GetDateTime(DateTime*);
 // Debug Functions
 void TestFunc1(void);
 
-#endif
+//---------------------------------------------------------------------------------------------------------------------
+/*______________________________________________________*/
+/* SRAM ALLOCATION MAP (131072 bytes)					*/
+/*														*/
+/*			0123456789ABCDEF							*/
+/*			0000000000000000							*/
+/*			0000000000000000							*/
+/*			________________							*/
+/* 0x00000:	1111111111111111	<-- Comm1 Line Buffer	*/	SCUINT24 SRAM_ADDR_COMM1_LINE_QUEUE = 0x000000;
+/* 0x01000: 2222222222222222	<-- Comm2 Line Buffer	*/	SCUINT24 SRAM_ADDR_COMM2_LINE_QUEUE = 0x010000;
+/* 0x02000: ................							*/
+/* 0x03000: ................							*/
+/* 0x04000: ................							*/
+/* 0x05000: ................							*/
+/* 0x06000: ................							*/
+/* 0x07000: ................							*/
+/* 0x08000: ................							*/
+/* 0x09000: ................							*/
+/* 0x0A000: ................							*/
+/* 0x0B000: ................							*/
+/* 0x0C000: ................							*/
+/* 0x0D000: ................							*/
+/* 0x0E000: ................							*/
+/* 0x0F000: ................							*/
+/* 0x10000: ................							*/
+/* 0x11000: ................							*/
+/* 0x12000: ................							*/
+/* 0x13000: ................							*/
+/* 0x14000: ................							*/
+/* 0x15000: ................							*/
+/* 0x16000: ................							*/
+/* 0x17000: ................							*/
+/* 0x18000: ................							*/
+/* 0x19000: ................							*/
+/* 0x1A000: ................							*/
+/* 0x1B000: ................							*/
+/* 0x1C000: ................							*/
+/* 0x1D000: ................							*/
+/* 0x1E000: ................							*/
+/* 0x1F000: ................							*/
+/*______________________________________________________*/
 
-/* SRAM ALLOCATION MAP (131072 bytes)
- *
- *			0123456789ABCDEF
- *			0000000000000000
- *			0000000000000000
- *			________________
- * 0x00000:	1111111111111111	<-- Comm1 Line Buffer
- * 0x01000: 2222222222222222	<-- Comm2 Line Buffer
- * 0x02000: LLLLLLLLLLLLLLLL	<-- Load Measurements
- * 0x03000: ................
- * 0x04000: ................
- * 0x05000: ................
- * 0x06000: ................
- * 0x07000: ................
- * 0x08000: ................
- * 0x09000: ................
- * 0x0A000: ................
- * 0x0B000: ................
- * 0x0C000: ................
- * 0x0D000: ................
- * 0x0E000: ................
- * 0x0F000: ................
- * 0x10000: ................
- * 0x11000: ................
- * 0x12000: ................
- * 0x13000: ................
- * 0x14000: ................
- * 0x15000: ................
- * 0x16000: ................
- * 0x17000: ................
- * 0x18000: ................
- * 0x19000: ................
- * 0x1A000: ................
- * 0x1B000: ................
- * 0x1C000: ................
- * 0x1D000: ................
- * 0x1E000: ................
- * 0x1F000: ................
- */
+#endif

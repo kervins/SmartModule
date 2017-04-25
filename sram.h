@@ -88,16 +88,6 @@ typedef struct Sram
 	unsigned long int startTime;
 } Sram;
 
-typedef struct MemoryAddressRingBuffer
-{
-	unsigned int blockSize;
-	unsigned int maxBlockCount;
-	unsigned short long int baseAddress;
-	unsigned short long int length;
-	unsigned short long int head;
-	unsigned short long int tail;
-} MemoryAddressRingBuffer;
-
 // GLOBAL VARIABLES------------------------------------------------------------
 extern volatile Sram _sram;
 
@@ -106,8 +96,10 @@ extern volatile Sram _sram;
 void SramStatusInitialize(void);
 // SRAM User Callable Functions
 void SramSetMode(SramMode mode);
-void SramReadBytes(unsigned short long int address, unsigned short long int length, Buffer* destination);
-void SramWriteBytes(unsigned short long int address, Buffer* source);
+void SramRead(unsigned short long int address, unsigned short long int length, Buffer* destination);
+//void SramReadBytes(unsigned short long int address, unsigned short long int length, unsigned char* destination);
+void SramWrite(unsigned short long int address, Buffer* source);
+//void SramWriteBytes(unsigned short long int address, unsigned short long int length, unsigned char* source);
 void SramFill(unsigned short long int address, unsigned short long int length, unsigned char value);
 // SRAM Callback Functions
 void _SramOperationStart(void);

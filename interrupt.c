@@ -12,14 +12,26 @@
 #include "button.h"
 #include "serial_comm.h"
 #include "sram.h"
+#include "adc_rms.h"
 #include "utility.h"
 
 void __interrupt(high_priority) isrHighPriority(void)
 {
-	if(PIR3bits.TMR4IF)
+	if(PIR1bits.ADIF)
+	{
+		if(_adc.samples.length < _adc.samples.capacity)
+			RingBufferEnqueue(&_adc.samples, (unsigned int*) ADRES);
+		PIR1bits.ADIF = false;
+	}
+	else if(PIR3bits.TMR4IF)
 	{
 		_tick++;
 		PIR3bits.TMR4IF = false;
+	}
+	else if(PIR5bits.TMR6IF)
+	{
+		ADCON0bits.GO = true;
+		PIR5bits.TMR6IF = false;
 	}
 	else if(INTCON3bits.INT1IF)
 	{
@@ -37,9 +49,7 @@ void __interrupt(low_priority) isrLowPriority(void)
 		{
 			RAM_CS = 1;
 			if(_sram.statusBits.currentOperation == SRAM_OP_READ)
-				_sram.targetBuffer->length = _sram.targetBuffer->elementSize == 1
-					? _sram.dataLength
-					: _sram.dataLength / _sram.targetBuffer->elementSize;
+				_sram.targetBuffer->length = _sram.dataLength;
 			_sram.statusBits.busy = false;
 		}
 
@@ -70,7 +80,7 @@ void __interrupt(low_priority) isrLowPriority(void)
 	if(PIR1bits.TX1IF)
 	{
 		if(_comm1.buffers.tx.length && !_comm1.statusBits.isTxPaused)
-			TXREG1 = RingBufferU8Dequeue(&_comm1.buffers.tx);
+			RingBufferDequeue(&_comm1.buffers.tx, &TXREG1);
 		else
 			PIE1bits.TX1IE = false;
 	}
@@ -85,7 +95,7 @@ void __interrupt(low_priority) isrLowPriority(void)
 			else if(data == ASCII_XON && _comm1.statusBits.isTxFlowControl)
 				_comm1.statusBits.isTxPaused = false;
 			else
-				RingBufferU8Enqueue(&_comm1.buffers.rx, data);
+				RingBufferEnqueue(&_comm1.buffers.rx, (char*) data);
 
 			if(_comm1.statusBits.isRxFlowControl
 			&&!_comm1.statusBits.isRxPaused
@@ -102,7 +112,7 @@ void __interrupt(low_priority) isrLowPriority(void)
 	if(PIR3bits.TX2IF)
 	{
 		if(_comm2.buffers.tx.length && !_comm2.statusBits.isTxPaused)
-			TXREG2 = RingBufferU8Dequeue(&_comm2.buffers.tx);
+			RingBufferDequeue(&_comm2.buffers.tx, &TXREG2);
 		else
 			PIE3bits.TX2IE = false;
 	}
@@ -117,7 +127,7 @@ void __interrupt(low_priority) isrLowPriority(void)
 			else if(data == ASCII_XON && _comm2.statusBits.isTxFlowControl)
 				_comm2.statusBits.isTxPaused = false;
 			else
-				RingBufferU8Enqueue(&_comm2.buffers.rx, data);
+				RingBufferEnqueue(&_comm2.buffers.rx, (char*) data);
 
 			if(_comm2.statusBits.isRxFlowControl
 			&&!_comm2.statusBits.isRxPaused
