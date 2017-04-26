@@ -14,7 +14,7 @@
       <itemPath>shell.h</itemPath>
       <itemPath>linked_list.h</itemPath>
       <itemPath>buffer.h</itemPath>
-      <itemPath>adc_rms.h</itemPath>
+      <itemPath>smartmodule.h</itemPath>
     </logicalFolder>
     <logicalFolder name="LinkerScript"
                    displayName="Linker Files"
@@ -33,7 +33,7 @@
       <itemPath>shell.c</itemPath>
       <itemPath>linked_list.c</itemPath>
       <itemPath>buffer.c</itemPath>
-      <itemPath>adc_rms.c</itemPath>
+      <itemPath>smartmodule.c</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"

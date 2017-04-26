@@ -18,15 +18,16 @@
 #define TCY		1L/FCY		// Instruction period					(83.33ns)
 
 // DEFINITIONS (PERIPHERAL)----------------------------------------------------
-#define ANALOG0			PORTAbits.AN0
-#define ANALOG1			PORTAbits.AN1
-#define ANALOG2			PORTAbits.AN2
-#define ANALOG3			PORTAbits.AN3
+#define ANALOG0			PORTAbits.RA0
+#define ANALOG1			PORTAbits.RA1
+#define ANALOG2			PORTAbits.RA2
+#define ANALOG3			PORTAbits.RA3
+#define PROX			PORTAbits.RP1
 #define BUTTON			PORTAbits.RP2
 #define LED				LATAbits.LATA6
 #define WIFI_RST		LATAbits.LATA7
-#define RELAY0			LATBbits.LATB0
-#define RELAY1			LATBbits.LATB1
+#define RELAY_RES		LATBbits.LATB0
+#define RELAY_SET		LATBbits.LATB1
 #define RAM_CS			LATBbits.LATB3
 #define RAM_SCK			PORTBbits.RP8
 #define RAM_MISO		PORTBbits.RP5
@@ -41,7 +42,6 @@
 #define WIFI_TX			PORTCbits.RX1
 
 // DEFINITIONS (DATA)----------------------------------------------------------
-#define PERF_COUNTER_ARRAY_SIZE	10
 #define TX_BUFFER_SIZE			64
 #define RX_BUFFER_SIZE			256
 #define LINE_BUFFER_SIZE		RX_BUFFER_SIZE
@@ -51,13 +51,17 @@
 // DEFINITIONS (OTHER)---------------------------------------------------------
 #define FIRMWARE_VERSION	1.00
 #define WIFI_MODULE			ESP8266_01
+#define ROLE				2	// 0 = SmartSwitch, 1 = SensorHub, 2 = both
+
+// CONSTANTS-------------------------------------------------------------------
+static const char* _id	= "SM000001";
+//static const char* _id	= "SM000002";
 
 // GLOBAL VARIABLES------------------------------------------------------------
 extern volatile unsigned long int _tick;
 extern volatile struct ButtonInfo _button;
 extern struct CommPort _comm1, _comm2;
 extern const struct CommDataRegisters _comm1Regs, _comm2Regs;
-extern struct AdcRmsInfo _adc;
 
 // FUNCTION PROTOTYPES---------------------------------------------------------
 // Initialization
@@ -91,10 +95,10 @@ void TestFunc1(void);
 /*			________________							*/
 /* 0x00000:	1111111111111111	<-- Comm1 Line Buffer	*/	SCUINT24 SRAM_ADDR_COMM1_LINE_QUEUE = 0x000000;
 /* 0x01000: 2222222222222222	<-- Comm2 Line Buffer	*/	SCUINT24 SRAM_ADDR_COMM2_LINE_QUEUE = 0x010000;
-/* 0x02000: ................							*/
-/* 0x03000: ................							*/
-/* 0x04000: ................							*/
-/* 0x05000: ................							*/
+/* 0x02000: LLLLLLLLLLLLLLLL	<-- Load History Buffer	*/	SCUINT24 SRAM_ADDR_LOAD_QUEUE		= 0x020000;
+/* 0x03000: LLLLLLLLLLLLLLLL							*/
+/* 0x04000: LLLLLLLLLLLLLLLL							*/
+/* 0x05000: LLLLLLLLLLLLLLLL							*/
 /* 0x06000: ................							*/
 /* 0x07000: ................							*/
 /* 0x08000: ................							*/

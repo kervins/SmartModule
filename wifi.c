@@ -28,6 +28,8 @@ void UpdateWifi(void)
 void WifiReset(void)
 {
 	WIFI_RST = 0;
+	_wifi.statusBits.isSsidConnected = false;
+	_wifi.statusBits.tcpConnectionStatus = WIFI_TCP_CLOSED;
 	if(_wifi.statusBits.resetMode == WIFI_RESET_HOLD || _wifi.statusBits.resetMode == WIFI_RESET_RESTART)
 	{
 		RCSTA1bits.SPEN	= false;
@@ -67,6 +69,8 @@ void WifiHandleBoot(void)
 		if(BufferContains(&_comm1.buffers.line, "ready", 5) >= 0)
 		{
 			_wifi.statusBits.boot = WIFI_BOOT_COMPLETE;
+			CommPutString(&_comm1, "ATE0");
+			CommPutNewline(&_comm1);
 			_comm1.modeBits.useExternalBuffer = true;
 		}
 		_comm1.buffers.line.length = 0;

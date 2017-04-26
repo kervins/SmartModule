@@ -144,16 +144,19 @@ LinkedListNode* ShellAddTask(B_Action action,
 // Shell Management
 void ShellInitialize(CommPort* serverComm, CommPort* terminalComm,
 					 unsigned int swapBufferSize, char* swapBufferData);
-void ShellParseCommandLine(CommPort* comm);
+void ShellParseCommandLine(Buffer* buffer);
 void ShellHandleSequence(CommPort* comm);
 void ShellPrintBasicLayout(void);
 void ShellPrintLastWarning(unsigned char row, unsigned char col);
 void ShellPrintLastError(unsigned char row, unsigned char col);
 //void ShellDequeueLine(ExternalRingBufferU8* source, Buffer* destination);
 // Commands
-bool ShellWaitText(void);
 bool ShellPrintTick(void);
 bool ShellPrintDateTime(void);
 bool ShellCalculateRMSCurrent(void);
+bool ShellUpdateRelayStatus(void);
+bool ShellUpdateProximityStatus(void);
+bool ShellConnectNetwork(void);
+bool ShellConnectTcp(void);
 
 #endif

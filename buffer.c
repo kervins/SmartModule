@@ -273,3 +273,26 @@ int BufferFind(Buffer* buffer, const void* value, unsigned int valueLength, unsi
 	}
 	return index;
 }
+
+Buffer BufferTrimLeft(Buffer* buffer, unsigned int value)
+{
+	if(buffer == NULL || value >= buffer->length || value == 0)
+		return *buffer;
+
+	Buffer result;
+	InitializeBuffer(&result, buffer->capacity, buffer->elementSize, buffer->data);
+	result.length = buffer->length - value;
+	result.data = ((uint8_t*) result.data) + (result.elementSize * value);
+	return result;
+}
+
+Buffer BufferTrimRight(Buffer* buffer, unsigned int value)
+{
+	if(buffer == NULL || value >= buffer->length || value == 0)
+		return *buffer;
+
+	Buffer result;
+	InitializeBuffer(&result, buffer->capacity, buffer->elementSize, buffer->data);
+	result.length = buffer->length - value;
+	return result;
+}

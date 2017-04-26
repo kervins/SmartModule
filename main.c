@@ -21,7 +21,7 @@
 #include "sram.h"
 #include "wifi.h"
 #include "shell.h"
-#include "adc_rms.h"
+#include "smartmodule.h"
 #include "linked_list.h"
 #include "utility.h"
 
@@ -93,7 +93,7 @@ void ConfigurePorts(void)
 {
 	// PORTA
 	LATA	= 0b00000000;	// Clear port latch
-	ANCON0	= 0b11110000;	// Enable analog inputs AN0-AN3
+	ANCON0	= 0b11111110;	// Enable analog input AN0
 	TRISA	= 0b00111111;	// Output PORTA<7:6>, Input PORTA<5:0>
 
 	// PORTB
@@ -112,6 +112,7 @@ void ConfigurePorts(void)
 	EECON2 = 0xAA;
 	PPSCONbits.IOLOCK = 0;	// Unlock PPS registers
 	RPINR1	= 0x02;			// Assign External Interrupt 1		(INT1) to RP2	(PORTA<5>)
+	RPINR2	= 0x01;			// Assign External Interrupt 2		(INT2) to RP1	(PORTA<1>)
 	RPINR21	= 0x05;			// Assign SPI2 Data Input			(SDI2) to RP5	(PORTB<2>)
 	RPINR22	= 0x08;			// Assign SPI2 Clock Input			(SCK2IN) to RP8	(PORTB<5>)
 	RPINR16	= 0x0C;			// Assign USART2 Async. Receive		(RX2) to RP12	(PORTC<1>)
@@ -135,6 +136,13 @@ void ConfigureTimers(void)
 	T6CONbits.T6CKPS	= 0x2;	// Clock prescale
 	T6CONbits.T6OUTPS	= 0x4;	// Output postscale
 	PR6					= 0xFA;	// Timer period
+
+	// Timer 0 (governs the pulse width of the relay control signals)
+	T0CONbits.T08BIT	= 0;	// Configured for 16-bit operation
+	T0CONbits.T0CS		= 0;	// Use instruction clock (FCY) as timer clock source
+	T0CONbits.PSA		= 0;	// Enable prescaler
+	T0CONbits.T0PS		= 6;	// Prescaler = 1:128
+	TMR0				= TIMER0_START_VALUE;
 }
 
 void ConfigureSPI(void)
@@ -208,13 +216,13 @@ void ConfigureRTCC(void)
 	// Set initial date and time (will be corrected once connected to WiFi)
 	RTCCFGbits.RTCPTR1 = 1;
 	RTCCFGbits.RTCPTR0 = 1;
-	RTCVALH = 0x16;		// Year
-	RTCVALL = 0x31;		// Day
-	RTCVALH = DECEMBER;	// Month
-	RTCVALL = 0x23;		// Hour
-	RTCVALH = SATURDAY;	// Weekday
+	RTCVALH = 0x17;		// Year
+	RTCVALL = 0x26;		// Day
+	RTCVALH = APRIL;	// Month
+	RTCVALL = 0x08;		// Hour
+	RTCVALH = WEDNESDAY;	// Weekday
 	RTCVALL = 0x00;		// Second
-	RTCVALH = 0x59;		// Minute
+	RTCVALH = 0x00;		// Minute
 	RTCCFGbits.RTCEN	= true;		// Enable RTCC
 	RTCCFGbits.RTCWREN	= false;	// Lock RTCC value registers
 }
@@ -232,10 +240,19 @@ void ConfigureADC(void)
 
 void ConfigureInterrupts(void)
 {
-	// Configure external interrupt (pushbutton = active LOW on INT1 mapped to RP2)
+	// Configure external interrupt 1 (pushbutton = active LOW on INT1 mapped to RP2)
 	INTCON2bits.INTEDG1	= 0;	// Falling edge (button)
 	INTCON3bits.INT1IP	= 1;	// High priority
 	INTCON3bits.INT1IE	= 1;	// Enable
+
+	// Configure external interrupt 2 (proximity sensor = active HIGH on INT2 mapped to RP1)
+	INTCON2bits.INTEDG2	= 1;	// Rising edge (proximity sensor)
+	INTCON3bits.INT2IP	= 0;	// Low priority
+	INTCON3bits.INT2IE	= 1;	// Enable
+
+	// Configure Timer 0 overflow interrupt
+	INTCON2bits.TMR0IP	= 0;	// Low priority
+	INTCONbits.TMR0IE	= 1;	// Enable
 
 	// Configure Timer 4 period match interrupt
 	IPR3bits.TMR4IP	= 1;	// High priority
@@ -318,9 +335,6 @@ void ConfigureOS(void)
 	mode.holdDisabled = true;
 	mode.mode = SRAM_MODE_BURST;
 	SramSetMode(mode);
-	/*while(_sram.busy)
-		continue;
-	SramFill(0x000000, SRAM_CAPACITY, 0xFF);*/
 
 	// Start tick timer (Timer 4) and ADC timer (Timer 6)
 	T4CONbits.TMR4ON = true;
@@ -331,8 +345,7 @@ void ConfigureOS(void)
 
 void ButtonPress(void)
 {
-	_comm1.modeBits.echoRx = true;
-	CommPutString(&_comm1, "AT");
+	RelayControl(_relayState ? 0 : 1);
 }
 
 void ButtonHold(void)
@@ -395,26 +408,15 @@ void TestFunc1(void) {
 	InitializeBuffer(&test8, 8, 1, testData8);
 	InitializeBuffer(&test16, 8, 2, testData16);
 	test8.length = 8;
-	test16.length = 8;*/
+	test16.length = 8;
 
-	/*int sum = 0;
-	int result = BufferContains(&test8, "2", 1);
-	sum += result;
-	result = BufferContains(&test8, "23", 2);
-	sum += result;
-	result = BufferContains(&test8, "123", 3);
-	sum += result;
-	result = BufferContains(&test8, "X", 1);
-	sum += result;
-	result = BufferContains(&test16, &valueA, 1);
-	sum += result;
-	result = BufferContains(&test16, &valueB, 2);
-	sum += result;
-	result = BufferContains(&test16, &valueC, 1);
-	sum += result;
-	LED = sum >= 0 ? 1 : 0;*/
+	int sum = 0;
+	test16 = BufferTrimLeft(&test16, 3);
+	sum += test16.length;
+	test16 = BufferTrimRight(&test16, 2);
+	sum += test16.length;
 
-	/*int sum = 0;
+	int sum = 0;
 	int result = BufferFind(&test8, "A", 1, 0);
 	sum += result;
 	result = BufferFind(&test8, "A", 1, 1);

@@ -12,7 +12,7 @@
 #include "button.h"
 #include "serial_comm.h"
 #include "sram.h"
-#include "adc_rms.h"
+#include "smartmodule.h"
 #include "utility.h"
 
 void __interrupt(high_priority) isrHighPriority(void)
@@ -139,6 +139,23 @@ void __interrupt(low_priority) isrLowPriority(void)
 				_comm2.statusBits.isRxPaused = true;
 			}
 		}
+	}
+
+	if(INTCONbits.TMR0IF)
+	{
+		RELAY_RES = 0;
+		RELAY_SET = 0;
+		T0CONbits.TMR0ON = false;
+		TMR0 = TIMER0_START_VALUE;
+		INTCONbits.TMR0IF = false;
+	}
+
+	if(INTCON3bits.INT2IF && !_prox.isTripped)
+	{
+		_prox.lastTripped = _tick;
+		_prox.count++;
+		_prox.isTripped = true;
+		INTCON3bits.INT2IF = false;
 	}
 	return;
 }

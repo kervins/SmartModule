@@ -51,4 +51,6 @@ bool RingBufferDequeueSRAM(volatile RingBuffer* buffer, Buffer* destination);
 bool BufferEquals(Buffer* buffer, const void* value, unsigned int valueLength);
 int BufferContains(Buffer* buffer, const void* value, unsigned int valueLength);
 int BufferFind(Buffer* buffer, const void* value, unsigned int valueLength, unsigned int n);
+Buffer BufferTrimLeft(Buffer* buffer, unsigned int value);
+Buffer BufferTrimRight(Buffer* buffer, unsigned int value);
 #endif

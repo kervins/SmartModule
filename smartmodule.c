@@ -1,5 +1,5 @@
 /* Project:	SmartModule
- * File:	adc_rms.c
+ * File:	smartmodule.c
  * Author:	Jonathan Ruisi
  * Created:	April 13, 2017, 12:33 PM
  */
@@ -8,7 +8,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <math.h>
-#include "adc_rms.h"
+#include "main.h"
+#include "smartmodule.h"
 #include "buffer.h"
 #include "serial_comm.h"
 #include "shell.h"
@@ -16,8 +17,10 @@
 // GLOBAL VARIABLES------------------------------------------------------------
 AdcRmsInfo _adc;
 uint16_t _adcData[ADC_WINDOW_SIZE];
+unsigned char _relayState;
+ProxDetectInfo _prox;
 
-// FUNCTIONS-------------------------------------------------------------------
+// LOAD MEASUREMENT FUNCTIONS--------------------------------------------------
 
 void InitializeLoadMeasurement(void)
 {
@@ -59,4 +62,23 @@ double CalculateCurrentRMS(void)
 	// Resume ADC sampling
 	PIE5bits.TMR6IE	= 1;
 	return result;
+}
+
+// RELAY CONTROL FUNCTIONS-----------------------------------------------------
+
+void RelayControl(unsigned char state)
+{
+	if(state)	// Close relay
+	{
+		RELAY_SET = 1;
+		LED = 1;
+	}
+	else		// Open relay
+	{
+		RELAY_RES = 1;
+		LED = 0;
+	}
+	_relayState = state;
+	ShellAddTask(ShellUpdateRelayStatus, 1, 0, 0, false, false, false, 0);
+	T0CONbits.TMR0ON = true;
 }

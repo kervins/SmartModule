@@ -19,6 +19,10 @@
 #define WIFI_RESET_HOLD		0
 #define WIFI_RESET_RELEASE	1
 #define WIFI_RESET_RESTART	2
+// TCP status
+#define WIFI_TCP_CLOSED		0
+#define WIFI_TCP_CONNECTING	1
+#define WIFI_TCP_READY		2
 
 // TYPE DEFINITIONS------------------------------------------------------------
 
@@ -33,8 +37,7 @@ typedef struct
 			unsigned boot : 3;
 			unsigned resetMode : 2;
 			unsigned isSsidConnected : 1;
-			unsigned isTcpConnected : 1;
-			unsigned : 1;
+			unsigned tcpConnectionStatus : 2;
 		} statusBits;
 		unsigned char status;
 	} ;
@@ -56,10 +59,12 @@ typedef struct CWLAP_options
 } CWLAP_options;
 
 // CONSTANTS (NETWORK INFO)----------------------------------------------------
-static const char* network_ssid			= "RuisiWifi";
-static const unsigned int network_port	= 11000;
+static const char* network_ssid			= "ssid";
 static const bool network_use_password	= true;
-static const char* network_pass			= "R3adY0uF1v3By5";
+static const char* network_pass			= "password";
+//static const char* tcp_server			= "192.168.1.103";
+static const char* tcp_server			= "SERVER";
+static const unsigned int tcp_port		= 11000;
 
 // CONSTANTS (ESP-8266 AT COMMANDS)--------------------------------------------
 // BASIC COMMANDS

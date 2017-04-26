@@ -15,7 +15,7 @@
 #include "sram.h"
 #include "serial_comm.h"
 #include "wifi.h"
-#include "adc_rms.h"
+#include "smartmodule.h"
 #include "utility.h"
 
 // GLOBAL VARIABLES------------------------------------------------------------
@@ -34,12 +34,36 @@ void ShellLoop(void)
 		RingBufferDequeueSRAM(&_shell.server->buffers.external, &_shell.swapBuffer);
 		while(_sram.statusBits.busy)
 			continue;
-		CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_COMM1A.y, COORD_VALUE_COMM1A.x);
-		CommPutSequence(_shell.terminal, ANSI_ELINE, 0);
-		CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_COMM1A.y, COORD_VALUE_COMM1A.x);
-		CommPutString(_shell.terminal, (char*) _shell.swapBuffer.data);
-		CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_COMM1B.y, COORD_VALUE_COMM1B.x);
-		CommPutSequence(_shell.terminal, ANSI_ELINE, 0);
+
+		if((BufferContains(&_shell.swapBuffer, "OK", 2) == 0)
+		|| (BufferContains(&_shell.swapBuffer, "ERROR", 2) == 0))
+		{
+			CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_COMM1B.y, COORD_VALUE_COMM1B.x);
+			CommPutSequence(_shell.terminal, ANSI_ELINE, 0);
+			CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_COMM1B.y, COORD_VALUE_COMM1B.x);
+			CommPutString(_shell.terminal, (char*) _shell.swapBuffer.data);
+		}
+			/*else if(BufferContains(&_shell.swapBuffer, "+IPD", 4) == 0)
+			{
+				int cmdStart = BufferFind(&_shell.swapBuffer, ":", 1, 0);
+				if(cmdStart >= 0)
+				{
+					_shell.swapBuffer = BufferTrimLeft(&_shell.swapBuffer, cmdStart);
+				}
+				CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_COMM1A.y, COORD_VALUE_COMM1A.x);
+				CommPutSequence(_shell.terminal, ANSI_ELINE, 0);
+				CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_COMM1A.y, COORD_VALUE_COMM1A.x);
+				CommPutString(_shell.terminal, (char*) _shell.swapBuffer.data);
+			}*/
+		else
+		{
+			CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_COMM1A.y, COORD_VALUE_COMM1A.x);
+			CommPutSequence(_shell.terminal, ANSI_ELINE, 0);
+			CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_COMM1B.y, COORD_VALUE_COMM1B.x);
+			CommPutSequence(_shell.terminal, ANSI_ELINE, 0);
+			CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_COMM1A.y, COORD_VALUE_COMM1A.x);
+			CommPutString(_shell.terminal, (char*) _shell.swapBuffer.data);
+		}
 		CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_COMM1C.y, COORD_VALUE_COMM1C.x);
 		CommPutSequence(_shell.terminal, ANSI_ELINE, 0);
 		CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_COMM1D.y, COORD_VALUE_COMM1D.x);
@@ -52,6 +76,14 @@ void ShellLoop(void)
 			CommPutString(_shell.terminal, "             ");
 			CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_SSID_STATUS.y, COORD_VALUE_SSID_STATUS.x);
 			CommPutString(_shell.terminal, "Connected");
+			_wifi.eventTime = _tick;
+
+			// Send command to connect to TCP server
+			CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_HOST_STATUS.y, COORD_VALUE_HOST_STATUS.x);
+			CommPutString(_shell.terminal, "             ");
+			CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_HOST_STATUS.y, COORD_VALUE_HOST_STATUS.x);
+			CommPutString(_shell.terminal, "Connecting...");
+			ShellAddTask(ShellConnectTcp, 1, 0, 0, false, false, false, 0);
 		}
 		else if(BufferContains(&_shell.swapBuffer, "WIFI CONNECTED", 14) >= 0)
 		{
@@ -63,27 +95,44 @@ void ShellLoop(void)
 		else if(BufferContains(&_shell.swapBuffer, "WIFI DISCONNECT", 15) >= 0)
 		{
 			_wifi.statusBits.isSsidConnected = false;
-			_wifi.statusBits.isTcpConnected = false;
+			_wifi.statusBits.tcpConnectionStatus = WIFI_TCP_CLOSED;
 			CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_SSID_STATUS.y, COORD_VALUE_SSID_STATUS.x);
 			CommPutString(_shell.terminal, "             ");
 			CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_SSID_STATUS.y, COORD_VALUE_SSID_STATUS.x);
 			CommPutString(_shell.terminal, "Disconnected");
-			CommPutString(_shell.server, at_cwjap_cur);
-			CommPutString(_shell.server, "=\"");
-			CommPutString(_shell.server, network_ssid);
-			if(network_use_password)
-			{
-				CommPutString(_shell.server, "\",\"");
-				CommPutString(_shell.server, network_pass);
-			}
-			CommPutChar(_shell.server, '\"');
-			CommPutNewline(_shell.server);
+			ShellAddTask(ShellConnectNetwork, 1, 0, 0, false, false, false, 0);
+		}
+		else if(_wifi.statusBits.isSsidConnected &&
+				_wifi.statusBits.tcpConnectionStatus == WIFI_TCP_CONNECTING &&
+				BufferContains(&_shell.swapBuffer, "OK", 2) == 0)
+		{
+			_wifi.statusBits.tcpConnectionStatus = WIFI_TCP_READY;
+			CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_HOST_STATUS.y, COORD_VALUE_HOST_STATUS.x);
+			CommPutString(_shell.terminal, "             ");
+			CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_HOST_STATUS.y, COORD_VALUE_HOST_STATUS.x);
+			CommPutString(_shell.terminal, "Ready");
+		}
+		else if(_wifi.statusBits.isSsidConnected &&
+				BufferContains(&_shell.swapBuffer, "CLOSED", 6) >= 0)
+		{
+			_wifi.statusBits.tcpConnectionStatus = WIFI_TCP_CLOSED;
+			CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_HOST_STATUS.y, COORD_VALUE_HOST_STATUS.x);
+			CommPutString(_shell.terminal, "             ");
+			CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_HOST_STATUS.y, COORD_VALUE_HOST_STATUS.x);
+			CommPutString(_shell.terminal, "Closed");
+			//ShellAddTask(ShellConnectTcp, 1, 0, 0, false, false, false, 0);
+			//_wifi.eventTime = _tick;
 		}
 		else if(BufferContains(&_shell.swapBuffer, "ERROR", 5) >= 0)
 		{
 			_shell.result.lastError = SHELL_ERROR_WIFI_COMMAND;
 			_shell.result.values[0] = _tick;
 		}
+		else if(BufferContains(&_shell.swapBuffer, "#", 1) == 0)
+		{
+			ShellParseCommandLine(&_shell.swapBuffer);
+		}
+		_shell.swapBuffer.length = 0;
 	}
 	else if(_shell.terminal->buffers.external.length && !_sram.statusBits.busy)
 	{
@@ -100,7 +149,8 @@ void ShellLoop(void)
 		CommPutSequence(_shell.terminal, ANSI_ELINE, 0);
 		CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_COMM2D.y, COORD_VALUE_COMM2D.x);
 		CommPutSequence(_shell.terminal, ANSI_ELINE, 0);
-		ShellParseCommandLine(_shell.terminal);
+		ShellParseCommandLine(&_shell.swapBuffer);
+		_shell.swapBuffer.length = 0;
 	}
 
 	if(_shell.result.lastWarning)
@@ -225,27 +275,53 @@ void ShellInitialize(CommPort* serverComm, CommPort* terminalComm,
 	// Print basic layout
 	ShellPrintBasicLayout();
 
+	// Add one-shot tasks
+	ShellAddTask(ShellUpdateRelayStatus, 1, 0, 0, false, false, false, 0);
+
 	// Add persistent tasks
 	ShellAddTask(ShellPrintDateTime, 0, 1000, 0, false, true, true, 1, _shell.terminal);
 	ShellAddTask(ShellPrintTick, 0, 125, 0, false, true, true, 1, _shell.terminal);
 	ShellAddTask(ShellCalculateRMSCurrent, 0, 1000, 0, false, true, true, 0);
+	ShellAddTask(ShellUpdateProximityStatus, 0, 1000, 0, false, true, true, 0);
 }
 
-void ShellParseCommandLine(CommPort* comm)
+void ShellParseCommandLine(Buffer* buffer)
 {
-	if(BufferContains(&_shell.swapBuffer, "WC:", 3) == 0)
+	if(BufferContains(buffer, "WC:", 3) == 0)
 	{
 		CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_CMD.y, COORD_VALUE_CMD.x);
-		CommPutSequence(comm, ANSI_ELINE, 0);
+		CommPutSequence(_shell.terminal, ANSI_ELINE, 0);
 		CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_CMD.y, COORD_VALUE_CMD.x);
-		CommPutString(_shell.terminal, (uint8_t*) _shell.swapBuffer.data);
-		CommPutString(_shell.server, ((uint8_t*) _shell.swapBuffer.data) + 3);
+		CommPutString(_shell.terminal, (uint8_t*) buffer->data);
+		CommPutString(_shell.server, ((uint8_t*) buffer->data) + 3);
 		CommPutNewline(_shell.server);
 	}
-	else
+	else if(BufferContains(buffer, "#", 1) == 0)
 	{
-		_shell.result.lastError = SHELL_ERROR_COMMAND_NOT_RECOGNIZED;
+		_shell.swapBuffer = BufferTrimLeft(&_shell.swapBuffer, 1);
+		if(BufferContains(buffer, "tcpStart", 8) == 0)
+		{
+			CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_HOST_STATUS.y, COORD_VALUE_HOST_STATUS.x);
+			CommPutString(_shell.terminal, "             ");
+			CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_HOST_STATUS.y, COORD_VALUE_HOST_STATUS.x);
+			CommPutString(_shell.terminal, "Connecting...");
+			ShellAddTask(ShellConnectTcp, 1, 0, 0, false, false, false, 0);
+		}
+		else if(BufferContains(buffer, "SRLS:", 5) == 0)
+		{
+			CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_CMD.y, COORD_VALUE_CMD.x);
+			CommPutSequence(_shell.terminal, ANSI_ELINE, 0);
+			CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_CMD.y, COORD_VALUE_CMD.x);
+			CommPutString(_shell.terminal, (uint8_t*) buffer->data);
+
+			if(BufferContains(buffer, "0", 1) == 5)
+				RelayControl(0);
+			else if(BufferContains(buffer, "1", 1) == 5)
+				RelayControl(1);
+		}
 	}
+	else
+		_shell.result.lastError = SHELL_ERROR_COMMAND_NOT_RECOGNIZED;
 }
 
 void ShellHandleSequence(CommPort* comm)
@@ -321,13 +397,14 @@ void ShellPrintBasicLayout(void)
 	CommPutString(_shell.terminal, "SSID: ");
 	CommPutString(_shell.terminal, network_ssid);
 	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_LABEL_HOST.y, COORD_LABEL_HOST.x);
-	CommPutString(_shell.terminal, "HOST:");
+	CommPutString(_shell.terminal, "HOST: ");
+	CommPutString(_shell.terminal, tcp_server);
 	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_LABEL_RELAY.y, COORD_LABEL_RELAY.x);
 	CommPutString(_shell.terminal, "RELAY:");
 	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_LABEL_PROX.y, COORD_LABEL_PROX.x);
 	CommPutString(_shell.terminal, "PROX:");
 	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_LABEL_TEMP.y, COORD_LABEL_TEMP.x);
-	CommPutString(_shell.terminal, "TEMP:");
+	CommPutString(_shell.terminal, "TEMP: 20°C (?)");
 	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_LABEL_LOAD.y, COORD_LABEL_LOAD.x);
 	CommPutString(_shell.terminal, "LOAD:");
 	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_LABEL_UPTIME.y, COORD_LABEL_UPTIME.x);
@@ -479,6 +556,8 @@ bool ShellPrintDateTime(void)
 {
 	DateTime dt;
 	GetDateTime(&dt);
+	dt.date.Year.Tens = 1;	// HARD CODED = FIGURE OUT WHY year is always '00
+	dt.date.Year.Ones = 7;	// HARD CODED = FIGURE OUT WHY year is always '00
 	CommPort* port = (CommPort*) CURRENT_TASK->params[0];
 
 	// Weekday
@@ -606,5 +685,65 @@ bool ShellCalculateRMSCurrent(void)
 		CommPutString(_shell.terminal, rmsStr);
 		CommPutChar(_shell.terminal, 'W');
 	}
+	return true;
+}
+
+bool ShellUpdateRelayStatus(void)
+{
+	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_RELAY.y, COORD_VALUE_RELAY.x);
+	CommPutString(_shell.terminal, "      ");
+	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_RELAY.y, COORD_VALUE_RELAY.x);
+
+	if(_relayState)
+		CommPutString(_shell.terminal, "CLOSED");
+	else
+		CommPutString(_shell.terminal, "OPEN");
+	return true;
+}
+
+bool ShellUpdateProximityStatus(void)
+{
+	if(!_prox.isTripped)
+		return true;
+
+	unsigned char numStr[6];
+	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_PROX.y, COORD_VALUE_PROX.x);
+	CommPutString(_shell.terminal, "     ");
+	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_PROX.y, COORD_VALUE_PROX.x);
+	itoa(&numStr, _prox.count, 10);
+	CommPutString(_shell.terminal, numStr);
+	_prox.isTripped = false;
+	return true;
+}
+
+bool ShellConnectNetwork(void)
+{
+	CommPutString(_shell.server, at_cwjap_cur);
+	CommPutString(_shell.server, "=\"");
+	CommPutString(_shell.server, network_ssid);
+	if(network_use_password)
+	{
+		CommPutString(_shell.server, "\",\"");
+		CommPutString(_shell.server, network_pass);
+	}
+	CommPutChar(_shell.server, '\"');
+	CommPutNewline(_shell.server);
+	return true;
+}
+
+bool ShellConnectTcp(void)
+{
+	if(_tick - _wifi.eventTime < 2000)
+		return false;
+
+	unsigned char numStr[6];
+	itoa(&numStr, tcp_port, 10);
+	CommPutString(_shell.server, at_cipstart);
+	CommPutString(_shell.server, "=\"TCP\",\"");
+	CommPutString(_shell.server, tcp_server);
+	CommPutString(_shell.server, "\",");
+	CommPutString(_shell.server, numStr);
+	CommPutNewline(_shell.server);
+	_wifi.statusBits.tcpConnectionStatus = WIFI_TCP_CONNECTING;
 	return true;
 }
