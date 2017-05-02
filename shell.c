@@ -281,8 +281,9 @@ void ShellInitialize(CommPort* serverComm, CommPort* terminalComm,
 	// Add persistent tasks
 	ShellAddTask(ShellPrintDateTime, 0, 1000, 0, false, true, true, 1, _shell.terminal);
 	ShellAddTask(ShellPrintTick, 0, 125, 0, false, true, true, 1, _shell.terminal);
-	ShellAddTask(ShellCalculateRMSCurrent, 0, 1000, 0, false, true, true, 0);
-	ShellAddTask(ShellUpdateProximityStatus, 0, 1000, 0, false, true, true, 0);
+	ShellAddTask(ShellCalculateRMSCurrent, 0, 500, 0, false, true, true, 0);
+	//ShellAddTask(ShellUpdateProximityStatus, 0, 1000, 0, false, true, true, 0);
+	//ShellAddTask(ShellPrintTemp, 0, 10000, 0, false, true, true, 0);
 }
 
 void ShellParseCommandLine(Buffer* buffer)
@@ -402,9 +403,9 @@ void ShellPrintBasicLayout(void)
 	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_LABEL_RELAY.y, COORD_LABEL_RELAY.x);
 	CommPutString(_shell.terminal, "RELAY:");
 	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_LABEL_PROX.y, COORD_LABEL_PROX.x);
-	CommPutString(_shell.terminal, "PROX:");
+	CommPutString(_shell.terminal, "PROX: N/A");
 	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_LABEL_TEMP.y, COORD_LABEL_TEMP.x);
-	CommPutString(_shell.terminal, "TEMP: 20°C (?)");
+	CommPutString(_shell.terminal, "TEMP: N/A");
 	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_LABEL_LOAD.y, COORD_LABEL_LOAD.x);
 	CommPutString(_shell.terminal, "LOAD:");
 	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_LABEL_UPTIME.y, COORD_LABEL_UPTIME.x);
@@ -682,8 +683,21 @@ bool ShellCalculateRMSCurrent(void)
 	{
 		int status;
 		unsigned char* rmsStr = ftoa(rms, &status);
+		unsigned char valueStr[6];
 		CommPutString(_shell.terminal, rmsStr);
 		CommPutChar(_shell.terminal, 'W');
+
+		if(_wifi.statusBits.tcpConnectionStatus == WIFI_TCP_READY)
+		{
+			CommPutString(_shell.server, at_cipsend);
+			CommPutChar(_shell.server, '=');
+			itoa(&valueStr, strlen(rmsStr), 10);
+			CommPutString(_shell.server, valueStr);
+			CommPutNewline(_shell.server);
+			Delay10KTCYx(120);	// Delay for 100ms (quick and dirty)
+			CommPutString(_shell.server, rmsStr);
+			CommPutNewline(_shell.server);
+		}
 	}
 	return true;
 }
@@ -713,6 +727,19 @@ bool ShellUpdateProximityStatus(void)
 	itoa(&numStr, _prox.count, 10);
 	CommPutString(_shell.terminal, numStr);
 	_prox.isTripped = false;
+	return true;
+}
+
+bool ShellPrintTemp(void)
+{
+	int status;
+	unsigned char* tempStr = ftoa(70.0 + (float) (rand() % 5)*(0.1), &status);
+	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_TEMP.y, COORD_VALUE_TEMP.x);
+	CommPutString(_shell.terminal, "     ");
+	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_VALUE_TEMP.y, COORD_VALUE_TEMP.x);
+	tempStr[4] = 0;
+	CommPutString(_shell.terminal, tempStr);
+	CommPutString(_shell.terminal, "°F");
 	return true;
 }
 

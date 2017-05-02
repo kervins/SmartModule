@@ -45,6 +45,16 @@ double CalculateCurrentRMS(void)
 		RingBufferDequeue(&_adc.samples, &sample);
 		double adjSample1 = sample * 0.000805860806;
 		double adjSample2 = adjSample1 - 2.474;
+		//double a0 = adjSample1 - 2.46250;
+		//double a1 = adjSample1 - 2.46260;
+		//double a2 = adjSample1 - 2.46265;
+		//double a3 = adjSample1 - 2.46270;
+		//double a4 = adjSample1 - 2.46275;
+		//double a5 = adjSample1 - 2.46280;
+		//double a6 = adjSample1 - 2.46285;
+		//double a7 = adjSample1 - 2.46290;
+		//double a8 = adjSample1 - 2.46295;
+		//double aBull = a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8;
 		double adjSample3 = adjSample2 / 0.04;
 		result += adjSample3 * adjSample3;
 	}
@@ -54,6 +64,9 @@ double CalculateCurrentRMS(void)
 	result /= (double) ADC_WINDOW_SIZE;
 	result = sqrt(result);
 	result *= 120.0;
+
+	if(result <= 30.0)
+		result /= 100.0;
 
 	_adc.samples.head = 0;
 	_adc.samples.tail = 0;

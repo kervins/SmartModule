@@ -59,11 +59,11 @@ typedef struct CWLAP_options
 } CWLAP_options;
 
 // CONSTANTS (NETWORK INFO)----------------------------------------------------
-static const char* network_ssid			= "ssid";
+static const char* network_ssid			= "RuisiWifi";
 static const bool network_use_password	= true;
-static const char* network_pass			= "password";
+static const char* network_pass			= "";
 //static const char* tcp_server			= "192.168.1.103";
-static const char* tcp_server			= "SERVER";
+static const char* tcp_server			= "JRUISI-LAPTOP";
 static const unsigned int tcp_port		= 11000;
 
 // CONSTANTS (ESP-8266 AT COMMANDS)--------------------------------------------
