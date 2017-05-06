@@ -282,8 +282,8 @@ void ShellInitialize(CommPort* serverComm, CommPort* terminalComm,
 	ShellAddTask(ShellPrintDateTime, 0, 1000, 0, false, true, true, 1, _shell.terminal);
 	ShellAddTask(ShellPrintTick, 0, 125, 0, false, true, true, 1, _shell.terminal);
 	ShellAddTask(ShellCalculateRMSCurrent, 0, 500, 0, false, true, true, 0);
-	//ShellAddTask(ShellUpdateProximityStatus, 0, 1000, 0, false, true, true, 0);
-	//ShellAddTask(ShellPrintTemp, 0, 10000, 0, false, true, true, 0);
+	ShellAddTask(ShellUpdateProximityStatus, 0, 2000, 0, false, true, true, 0);
+	ShellAddTask(ShellPrintTemp, 0, 10000, 0, false, true, true, 0);
 }
 
 void ShellParseCommandLine(Buffer* buffer)
@@ -403,9 +403,9 @@ void ShellPrintBasicLayout(void)
 	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_LABEL_RELAY.y, COORD_LABEL_RELAY.x);
 	CommPutString(_shell.terminal, "RELAY:");
 	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_LABEL_PROX.y, COORD_LABEL_PROX.x);
-	CommPutString(_shell.terminal, "PROX: N/A");
+	CommPutString(_shell.terminal, "PROX:");
 	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_LABEL_TEMP.y, COORD_LABEL_TEMP.x);
-	CommPutString(_shell.terminal, "TEMP: N/A");
+	CommPutString(_shell.terminal, "TEMP:");
 	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_LABEL_LOAD.y, COORD_LABEL_LOAD.x);
 	CommPutString(_shell.terminal, "LOAD:");
 	CommPutSequence(_shell.terminal, ANSI_CPOS, 2, COORD_LABEL_UPTIME.y, COORD_LABEL_UPTIME.x);
