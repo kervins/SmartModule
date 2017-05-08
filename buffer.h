@@ -1,7 +1,9 @@
-/* Project:	SmartModule
- * File:	buffer.h
- * Author:	Jonathan Ruisi
- * Created:	April 13, 2017, 5:56 PM
+/**@file		buffer.h
+ * @brief		Header file defining linear and circular buffers
+ * @author		Jonathan Ruisi
+ * @version		1.0
+ * @date		April 13, 2017
+ * @copyright	GNU Public License
  */
 
 #ifndef BUFFER_H
@@ -11,24 +13,28 @@
 
 // TYPE DEFINITIONS------------------------------------------------------------
 
+/**@struct Buffer
+ * Defines a linear buffer that can contain elements of any size, including structures and unions
+ */
 typedef struct Buffer
 {
-	unsigned int elementSize;	// Size (bytes) of each element
-	unsigned int capacity;		// Buffer capacity (elements)
-	unsigned int length;		// Number of elements currently in the buffer
-	void* data;					// Pointer to an array of elements
+	unsigned int elementSize;	/**< Size (bytes) of each element */
+	unsigned int capacity;		/**< Buffer capacity (elements) */
+	unsigned int length;		/**< Number of elements currently in the buffer */
+	void* data;					/**< Pointer to an array of elements */
 } Buffer;
 
-// Buffers that can be used as a circular queue (data is processed FIFO)
-
+/**@struct RingBuffer
+ * Defines a circular buffer that can be used for FIFO storage
+ */
 typedef struct RingBuffer
 {
-	const void* data;				// Pointer to an array of elements
-	unsigned int elementSize;		// Size (bytes) of each element
-	unsigned int capacity;			// Buffer capacity (elements)
-	unsigned int length;			// Number of elements currently in the buffer
-	unsigned int head;				// Index of the head element
-	unsigned int tail;				// Index of the tail element
+	const void* data;				/**< Pointer to an array of elements */
+	unsigned int elementSize;		/**< Size (bytes) of each element */
+	unsigned int capacity;			/**< Buffer capacity (elements) */
+	unsigned int length;			/**< Number of elements currently in the buffer */
+	unsigned int head;				/**< Index of the head element */
+	unsigned int tail;				/**< Index of the tail element */
 } RingBuffer;
 
 // FUNCTION PROTOTYPES---------------------------------------------------------

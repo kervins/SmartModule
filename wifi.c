@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include "wifi.h"
 #include "main.h"
+#include "system.h"
 #include "serial_comm.h"
 #include "utility.h"
 

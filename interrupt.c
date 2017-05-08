@@ -9,10 +9,10 @@
 #include <stdint.h>
 #include "interrupt.h"
 #include "main.h"
+#include "system.h"
 #include "button.h"
 #include "serial_comm.h"
 #include "sram.h"
-#include "smartmodule.h"
 #include "utility.h"
 
 void __interrupt(high_priority) isrHighPriority(void)

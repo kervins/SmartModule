@@ -1,7 +1,9 @@
-/* Project:	SmartModule
- * File:	sram.c
- * Author:	Jonathan Ruisi
- * Created:	February 9, 2017, 4:39 AM
+/**@file		sram.c
+ * @brief		Implementation of SRAM functions
+ * @author		Jonathan Ruisi
+ * @version		1.0
+ * @date		February 9, 2017
+ * @copyright	GNU Public License
  */
 
 #include <xc.h>
@@ -9,14 +11,14 @@
 #include <stdbool.h>
 #include "sram.h"
 #include "main.h"
+#include "system.h"
 #include "utility.h"
 
 // SRAM USER CALLABLE FUNCTIONS------------------------------------------------
 
 /**
  * Writes to the mode register of the SRAM device
- * @param mode
- * <p>An <code>SramMode</code> structure containing the new mode settings to be written
+ * @param mode An <code>SramMode</code> structure containing the new mode settings to be written
  */
 void SramSetMode(SramMode mode)
 {
@@ -43,13 +45,10 @@ void SramSetMode(SramMode mode)
 
 /**
  * Reads data contained in external SRAM into a buffer
- * @param address
- * <p>Address in SRAM memory from which data will be read
- * @param length
- * <p>Number of <b>elements</b> to read
- * <p>The size of an element is determined from the <code>elementSize</code> member of the destination buffer
- * @param destination
- * <p>A pointer to a <code>Buffer</code> in which to store the data
+ * @param address Address in SRAM memory from which data will be read
+ * @param length Number of <b>elements</b> to read
+ * The size of an element is determined from the <code>elementSize</code> member of the destination buffer
+ * @param destination A pointer to a <code>Buffer</code> in which to store the data
  */
 void SramRead(unsigned short long int address, unsigned short long int length, Buffer* destination)
 {
@@ -76,18 +75,11 @@ void SramRead(unsigned short long int address, unsigned short long int length, B
 	_SramOperationStart();
 }
 
-/*void SramReadBytes(unsigned short long int address, unsigned short long int length, unsigned char* destination)
-{
-	if(_sram.statusBits.busy
-	|| destination == NULL
-	|| length == 0
-	|| length + address > SRAM_CAPACITY)
-		return;
-
-	if(address + length >= SRAM_CAPACITY)
-		length = SRAM_CAPACITY - address;
-}*/
-
+/**
+ * Writes data contained in a buffer to external SRAM
+ * @param address	Address in SRAM memory to which data will be written
+ * @param source	A pointer to a <code>Buffer</code> that contains the data to be written
+ */
 void SramWrite(unsigned short long int address, Buffer* source)
 {
 	if(_sram.statusBits.busy
@@ -108,12 +100,12 @@ void SramWrite(unsigned short long int address, Buffer* source)
 	_SramOperationStart();
 }
 
-/*void SramWriteBytes(unsigned short long int address, unsigned short long int length, unsigned char* source)
-{
-	if(_sram.statusBits.busy)
-		return;
-}*/
-
+/**
+ * Fills a specified portion of SRAM memory with a specified value
+ * @param address	The address at which the operation will begin
+ * @param length	The amount (in bytes) of memory to fill
+ * @param value		The value that will be written to each byte
+ */
 void SramFill(unsigned short long int address, unsigned short long int length, unsigned char value)
 {
 	if(_sram.statusBits.busy

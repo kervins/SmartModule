@@ -11,10 +11,9 @@
       <itemPath>sram.h</itemPath>
       <itemPath>serial_comm.h</itemPath>
       <itemPath>wifi.h</itemPath>
-      <itemPath>shell.h</itemPath>
       <itemPath>linked_list.h</itemPath>
       <itemPath>buffer.h</itemPath>
-      <itemPath>smartmodule.h</itemPath>
+      <itemPath>system.h</itemPath>
     </logicalFolder>
     <logicalFolder name="LinkerScript"
                    displayName="Linker Files"
@@ -30,10 +29,9 @@
       <itemPath>sram.c</itemPath>
       <itemPath>serial_comm.c</itemPath>
       <itemPath>wifi.c</itemPath>
-      <itemPath>shell.c</itemPath>
       <itemPath>linked_list.c</itemPath>
       <itemPath>buffer.c</itemPath>
-      <itemPath>smartmodule.c</itemPath>
+      <itemPath>system.c</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"
@@ -54,7 +52,7 @@
         <targetPluginBoard></targetPluginBoard>
         <platformTool>Simulator</platformTool>
         <languageToolchain>XC8</languageToolchain>
-        <languageToolchainVersion>1.41</languageToolchainVersion>
+        <languageToolchainVersion>1.42</languageToolchainVersion>
         <platform>3</platform>
       </toolsSet>
       <compileType>
@@ -305,9 +303,15 @@
         <property key="warningmessagebreakoptions.W0028_TBLRD_WORM_CONFIG_MEMORY"
                   value="report"/>
         <property key="warningmessagebreakoptions.W0029_TBLRD_DEVICE_ID" value="report"/>
+        <property key="warningmessagebreakoptions.W0030_CORE_UNIMPLEMENTED_MEMORY_ACCESS"
+                  value="report"/>
         <property key="warningmessagebreakoptions.W0031_BSLIM_INSUFFICIENT_BOOT_SEGMENT"
                   value="report"/>
         <property key="warningmessagebreakoptions.W0032_BSLIM_LIMITS_EXCEEDS_PROG_MEMORY"
+                  value="report"/>
+        <property key="warningmessagebreakoptions.W0033_CORE_UNPREDICTABLE_OPCODE"
+                  value="report"/>
+        <property key="warningmessagebreakoptions.W0034_CORE_UNALIGNED_MEMORY_ACCESS"
                   value="report"/>
         <property key="warningmessagebreakoptions.W0051_INSTRUCTION_DIV_NOT_ENOUGH_REPEAT"
                   value="report"/>
@@ -539,7 +543,7 @@
         <targetPluginBoard></targetPluginBoard>
         <platformTool>ICD3PlatformTool</platformTool>
         <languageToolchain>XC8</languageToolchain>
-        <languageToolchainVersion>1.41</languageToolchainVersion>
+        <languageToolchainVersion>1.42</languageToolchainVersion>
         <platform>3</platform>
       </toolsSet>
       <compileType>
@@ -564,7 +568,7 @@
         <makeCustomizationPostStep></makeCustomizationPostStep>
         <makeCustomizationPutChecksumInUserID>false</makeCustomizationPutChecksumInUserID>
         <makeCustomizationEnableLongLines>false</makeCustomizationEnableLongLines>
-        <makeCustomizationNormalizeHexFile>false</makeCustomizationNormalizeHexFile>
+        <makeCustomizationNormalizeHexFile>true</makeCustomizationNormalizeHexFile>
       </makeCustomizationType>
       <HI-TECH-COMP>
         <property key="asmlist" value="true"/>
@@ -611,7 +615,7 @@
         <property key="code-model-rom" value=""/>
         <property key="create-html-files" value="false"/>
         <property key="data-model-ram" value=""/>
-        <property key="data-model-size-of-double" value="24"/>
+        <property key="data-model-size-of-double" value="32"/>
         <property key="data-model-size-of-float" value="24"/>
         <property key="display-class-usage" value="false"/>
         <property key="display-hex-usage" value="false"/>
@@ -626,14 +630,14 @@
         <property key="fill-flash-options-what" value="0"/>
         <property key="format-hex-file-for-download" value="false"/>
         <property key="initialize-data" value="true"/>
-        <property key="keep-generated-startup.as" value="true"/>
+        <property key="keep-generated-startup.as" value="false"/>
         <property key="link-in-c-library" value="true"/>
         <property key="link-in-peripheral-library" value="true"/>
         <property key="managed-stack" value="false"/>
         <property key="opt-xc8-linker-file" value="true"/>
         <property key="opt-xc8-linker-link_startup" value="false"/>
         <property key="opt-xc8-linker-serial" value=""/>
-        <property key="program-the-device-with-default-config-words" value="true"/>
+        <property key="program-the-device-with-default-config-words" value="false"/>
         <appendMe value="--MSGDISABLE=1090"/>
       </HI-TECH-LINK>
       <ICD3PlatformTool>
@@ -644,7 +648,6 @@
                   value="C:\Program Files (x86)/Microchip/MPLABX/v3.55/mplab_ide/mplablibs/modules/ext/ICD3.jar/ICD3FW_014712.jam"/>
         <property key="ToolFirmwareOption.UseLatestFirmware" value="true"/>
         <property key="debugoptions.useswbreakpoints" value="false"/>
-        <property key="firmware.download.all" value="false"/>
         <property key="hwtoolclock.frcindebug" value="false"/>
         <property key="memories.aux" value="false"/>
         <property key="memories.bootflash" value="false"/>

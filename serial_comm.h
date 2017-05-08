@@ -1,7 +1,9 @@
-/* Project:	SmartModule
- * File:	serial_comm.h
- * Author:	Jonathan Ruisi
- * Created:	February 14, 2017, 2:22 AM
+/**@file		serial_comm.h
+ * @brief		Header file which creates an abstraction layer for any USART module on an enhanced mid-range PIC microcontroller
+ * @author		Jonathan Ruisi
+ * @version		1.0
+ * @date		February 14, 2017
+ * @copyright	GNU Public License
  */
 
 #ifndef SERIAL_COMM_H
@@ -12,28 +14,53 @@
 #include "linked_list.h"
 
 // MACROS (Calculates SPBRG values for USART baud rate generator)--------------
-// Each definition contains a value that is to be loaded into the BRG registers (SPBRGHx:SPBRGx)
-#define CALCULATE_BRG(rate)		((FOSC/rate)/64)-1	// BRG16 = 0, BRGH = 0
+/**@def CALCULATE_BRG(rate)
+ * Calculates the BRG value to be loaded into (SPBRGHx:SPBRGx) based on the desired baud rate (\a rate).
+ * BRG16 = 0, BRGH = 0
+ */
+#define CALCULATE_BRG(rate)		((FOSC/rate)/64)-1
+
+/**@def CALCULATE_BRG(rate)
+ * Calculates the BRG value to be loaded into (SPBRGHx:SPBRGx) based on the desired baud rate (\a rate).
+ * BRG16 = 0, BRGH = 1
+ */
 #define CALCULATE_BRG_H(rate)	((FOSC/rate)/16)-1	// BRG16 = 0, BRGH = 1
+
+/**@def CALCULATE_BRG(rate)
+ * Calculates the BRG value to be loaded into (SPBRGHx:SPBRGx) based on the desired baud rate (\a rate).
+ * BRG16 = 1, BRGH = 0
+ */
 #define CALCULATE_BRG_16(rate)	((FOSC/rate)/16)-1	// BRG16 = 1, BRGH = 0
+
+/**@def CALCULATE_BRG(rate)
+ * Calculates the BRG value to be loaded into (SPBRGHx:SPBRGx) based on the desired baud rate (\a rate).
+ * BRG16 = 1, BRGH = 1
+ */
 #define CALCULATE_BRG_16H(rate)	((FOSC/rate)/4)-1	// BRG16 = 1, BRGH = 1
 
 // DEFINITIONS-----------------------------------------------------------------
-#define XOFF_THRESHOLD	(3 * RX_BUFFER_SIZE) / 4
-#define XON_THRESHOLD	RX_BUFFER_SIZE / 4
-#define SEQ_MAX_PARAMS	8
+#define XOFF_THRESHOLD	(3 * RX_BUFFER_SIZE) / 4	/**< Software flow control: Determines how full the RX buffer must be before an XOFF character is transmitted, pausing transmission */
+#define XON_THRESHOLD	RX_BUFFER_SIZE / 4			/**< Software flow control: Determines how full the RX buffer must be before an XON character is transmitted, resuming transmission */
+#define SEQ_MAX_PARAMS	8							/**< Sets the maximum parameters that can be present in an ANSI control sequence */
 
 // ENUMERATED TYPES------------------------------------------------------------
 
+/**@enum NewlineFlags
+ * Defines the contents of a newline
+ */
 typedef enum
 {
-	NEWLINE_CR		= 1,
-	NEWLINE_LF		= 2,
-	NEWLINE_CRLF	= 3
+	NEWLINE_CR		= 1,	/**< Carriage return only */
+	NEWLINE_LF		= 2,	/**< Line feed only */
+	NEWLINE_CRLF	= 3		/**< Carriage return and line feed */
 } NewlineFlags;
 
 // TYPE DEFINITIONS------------------------------------------------------------
 
+/**@struct CommDataRegisters
+ * Structure which provides hardware-specific mappings to USART registers.
+ * This allows the abstraction layer to work with any enhanced mid-range PIC microcontroller.
+ */
 typedef struct CommDataRegisters
 {
 	unsigned char volatile* const pTxReg;
@@ -42,6 +69,14 @@ typedef struct CommDataRegisters
 	unsigned char const txieBit;
 } CommDataRegisters;
 
+/**@struct CommPort
+ * Structure which contains all necessary elements for control and communication with a USART module
+ * @see NewlineFlags
+ * @see CommDataRegisters
+ * @see RingBuffer
+ * @see Buffer
+ * @see Point
+ */
 typedef struct CommPort
 {
 
@@ -50,12 +85,12 @@ typedef struct CommPort
 
 		struct
 		{
-			unsigned isTxFlowControl : 1;
-			unsigned isRxFlowControl : 1;
-			unsigned isTxPaused : 1;
-			unsigned isRxPaused : 1;
-			unsigned hasLine : 1;
-			unsigned hasSequence : 1;
+			unsigned isTxFlowControl : 1;	/**< Enables/disables TX software flow control */
+			unsigned isRxFlowControl : 1;	/**< Enables/disables RX software flow control */
+			unsigned isTxPaused : 1;		/**< Indicates that TX has been paused by software flow control */
+			unsigned isRxPaused : 1;		/**< Indicates that RX has been paused by software flow control */
+			unsigned hasLine : 1;			/**< Indicates that a new line has been received */
+			unsigned hasSequence : 1;		/**< Indicates that an ANSI control sequence has been received */
 			unsigned : 2;
 		} statusBits;
 		unsigned char status;
@@ -66,12 +101,12 @@ typedef struct CommPort
 
 		struct
 		{
-			unsigned echoRx : 1;
-			unsigned echoNewline : 1;
-			unsigned echoSequence : 1;
-			unsigned useExternalBuffer : 1;
-			unsigned ignoreRx : 1;
-			unsigned isBinaryMode : 1;
+			unsigned echoRx : 1;			/**< Determines whether or not received characters are echoed */
+			unsigned echoNewline : 1;		/**< Determines whether or not received newlines are echoed */
+			unsigned echoSequence : 1;		/**< Determines whether or not received ANSI control sequences are echoed */
+			unsigned useExternalBuffer : 1;	/**< Determines whether or not to use an external SRAM buffer to store received lines */
+			unsigned ignoreRx : 1;			/**< Temporarily disables RX */
+			unsigned isBinaryMode : 1;		/**< If set, all received data is treated as binary (all newlines and control sequences are ignored) */
 			unsigned : 2;
 		} modeBits;
 		unsigned char mode;
@@ -79,9 +114,9 @@ typedef struct CommPort
 
 	struct
 	{
-		NewlineFlags rx;
-		NewlineFlags tx;
-		NewlineFlags inProgress;
+		NewlineFlags rx;					/**< Defines the newline character(s) for RX */
+		NewlineFlags tx;					/**< Defines the newline character(s) for TX */
+		NewlineFlags inProgress;			/**< Internal use, DO NOT MODIFY */
 	} newline;
 
 	struct
@@ -92,26 +127,26 @@ typedef struct CommPort
 
 			struct
 			{
-				unsigned csiCharCount : 2;
-				unsigned sequenceId : 6;
+				unsigned csiCharCount : 2;		/**< Internal use, DO NOT MODIFY */
+				unsigned sequenceId : 6;		/**< Internal use, DO NOT MODIFY */
 			} statusBits;
-			unsigned char status;
+			unsigned char status;				/**< Internal use, DO NOT MODIFY */
 		} ;
-		unsigned char paramCount;
-		unsigned char params[SEQ_MAX_PARAMS];
-		unsigned char terminator;
+		unsigned char paramCount;				/**< The number of parameters in the parameter list for an ANSI control sequence */
+		unsigned char params[SEQ_MAX_PARAMS];	/**< A list of parameters for an ANSI control sequence */
+		unsigned char terminator;				/**< Defines the terminating character of an ANSI control sequence */
 	} sequence;
 
 	struct
 	{
-		volatile RingBuffer tx;
-		volatile RingBuffer rx;
-		Buffer line;
-		RingBuffer external;
+		volatile RingBuffer tx;					/**< TX FIFO buffer */
+		volatile RingBuffer rx;					/**< RX FIFO buffer */
+		Buffer line;							/**< Line buffer */
+		RingBuffer external;					/**< FIFO buffer mapped to external SRAM */
 	} buffers;
 
-	Point cursor;
-	const CommDataRegisters* registers;
+	Point cursor;								/**< Current location of the terminal cursor */
+	const CommDataRegisters* registers;			/**< Pointer to a <b>CommDataRegisters</b> structure */
 } CommPort;
 
 // FUNCTION PROTOTYPES---------------------------------------------------------

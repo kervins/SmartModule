@@ -1,7 +1,9 @@
-/* Project:	SmartModule
- * File:	interrupt.h
- * Author:	Jonathan Ruisi
- * Created:	December 19, 2016, 5:26 AM
+/**@file		interrupt.h
+ * @brief		Header file which defines the high and low-priority interrupt service routines
+ * @author		Jonathan Ruisi
+ * @version		1.0
+ * @date		December 19, 2016
+ * @copyright	GNU Public License
  */
 
 #ifndef INTERRUPT_H

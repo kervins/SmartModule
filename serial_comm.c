@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "main.h"
+#include "system.h"
 #include "serial_comm.h"
 #include "sram.h"
 #include "utility.h"
